@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "bun --hot server.ts",
     "start": "bun server.ts",
-    "build": "bun build ./index.html --outdir dist --minify && cp public/og.png dist/og.png",
+    "build": "bun scripts/build.tsx",
+    "preview": "bun scripts/preview.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test ./test",
     "check": "bun run typecheck && bun test && bun run build"

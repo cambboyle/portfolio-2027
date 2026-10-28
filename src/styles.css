@@ -92,7 +92,11 @@ a:hover {
   }
 
   .nav ul {
-    gap: 14px;
+    gap: 6px 14px;
+  }
+
+  .intro {
+    padding-top: 28px;
   }
 }
 
@@ -100,7 +104,7 @@ a:hover {
   max-width: 1440px;
   margin: 0 auto;
   padding: 20px 24px 0;
-  height: 56px;
+  min-height: 56px;
 }
 
 .nav ul {
@@ -224,4 +228,21 @@ a:focus-visible {
 
 #main:focus {
   outline: none;
+}
+
+@media (max-width: 400px) {
+  body {
+    font-size: 14px;
+  }
+
+  .home,
+  .page,
+  .nav {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .nav ul {
+    gap: 4px 12px;
+  }
 }

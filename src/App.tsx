@@ -5,8 +5,7 @@ import { Projects, Project } from "./pages/Projects";
 import { Blog, Post } from "./pages/Blog";
 import { About } from "./pages/About";
 import { NotFound } from "./pages/NotFound";
-import { posts } from "./data/posts";
-import { projects } from "./data/projects";
+import { pageMeta } from "./meta";
 
 function Nav({ path }: { path: string }) {
   const item = (to: string, label: string) => (
@@ -28,21 +27,12 @@ function Nav({ path }: { path: string }) {
   );
 }
 
-const TITLES: Record<string, string> = {
-  "/projects": "Projects",
-  "/notes": "Notes",
-  "/about": "About",
-};
-
-export function App() {
-  const path = usePath();
+export function App({ initialPath }: { initialPath?: string }) {
+  const path = usePath(initialPath);
   useEffect(() => {
-    const page = path.startsWith("/notes/")
-      ? posts.find((p) => p.slug === path.slice(7))?.title
-      : path.startsWith("/projects/")
-        ? projects.find((p) => p.slug === path.slice(10))?.name
-        : TITLES[path];
-    document.title = page ? `${page} · Cameron Boyle` : "Cameron Boyle";
+    const { title, description } = pageMeta(path);
+    document.title = title;
+    document.querySelector('meta[name="description"]')?.setAttribute("content", description);
   }, [path]);
   let page;
   if (path === "/projects") page = <Projects />;

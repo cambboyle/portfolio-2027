@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import art from "../src/art/pagoda.json";
 import { posts } from "../src/data/posts";
 import { projects } from "../src/data/projects";
+import { pageMeta, routes } from "../src/meta";
 
 describe("projects", () => {
   test("slugs are unique and URL-safe", () => {
@@ -55,5 +56,21 @@ describe("pagoda art", () => {
   test("only uses characters from the ramp or the line glyphs", () => {
     const allowed = new Set(art.ramp + "|-/\\");
     for (const ch of art.chars) expect(allowed.has(ch)).toBe(true);
+  });
+});
+
+describe("page metadata", () => {
+  const metas = routes.map((r) => ({ route: r, ...pageMeta(r) }));
+
+  test("every page has its own title", () => {
+    const titles = metas.map((m) => m.title);
+    expect(new Set(titles).size).toBe(titles.length);
+  });
+
+  test("descriptions are short enough for search results", () => {
+    for (const m of metas) {
+      expect(m.description.length).toBeGreaterThan(10);
+      expect(m.description.length).toBeLessThanOrEqual(160);
+    }
   });
 });

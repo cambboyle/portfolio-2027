@@ -221,7 +221,7 @@ export function PagodaArt() {
 
   return (
     <div className="pagoda-wrap">
-      <canvas ref={ref} className="pagoda" role="img" aria-label="A pagoda at sunset drawn in characters, petals drifting past" />
+      <canvas ref={ref} className="pagoda" style={{ aspectRatio: `${cols} / ${rows * 1.8}` }} role="img" aria-label="A pagoda at sunset drawn in characters, petals drifting past" />
     </div>
   );
 }

@@ -1,8 +1,8 @@
 import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
 
 /** The current path, kept in state so a click on a <Link> swaps the page without reloading it. */
-export function usePath() {
-  const [path, setPath] = useState(location.pathname);
+export function usePath(initial?: string) {
+  const [path, setPath] = useState(initial ?? location.pathname);
   useEffect(() => {
     const onPop = () => setPath(location.pathname);
     addEventListener("popstate", onPop);
