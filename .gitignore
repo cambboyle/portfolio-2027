@@ -39,3 +39,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # earlier experiments, kept on my machine only
 archive/
+
+# Claude Code project notes, kept on my machine only
+CLAUDE.md
+.claude/
