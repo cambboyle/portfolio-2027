@@ -47,6 +47,7 @@ for (let i = 0; i < lum.length; i++) {
   lum[i] = 0.2126 * raw[i * 3] + 0.7152 * raw[i * 3 + 1] + 0.0722 * raw[i * 3 + 2];
 }
 
+const cool = new Uint8Array(COLS * ROWS); // sky and Fuji's flanks
 const warm = new Uint8Array(COLS * ROWS); // pagoda, leaves and town: lifted out of shadow below
 
 // The sky and Fuji's flanks are blue; the pagoda, leaves and town are warm. Dim the blue so the
@@ -57,7 +58,11 @@ for (let i = 0; i < lum.length; i++) {
   const b = raw[i * 3 + 2];
   const mx = Math.max(r, g, b);
   const sat = (mx - Math.min(r, g, b)) / (mx || 1);
-  if (b > r * 1.05 && sat > 0.12) lum[i] *= 0.7;
+  if (b > r * 1.05 && sat > 0.12) {
+    cool[i] = 1;
+    // open sky is the brightest blue: push it back hard so it frames the subject; Fuji's darker flanks keep more
+    lum[i] *= lum[i] > 120 ? 0.5 : 0.8;
+  }
   else if (r > b) warm[i] = 1;
   // Red walls and leaves are dark by luminance but vivid in colour; give them the brightness of their strongest channel.
   if (r > b * 1.3 && sat > 0.3) lum[i] = lum[i] * 0.4 + mx * 0.6;
@@ -87,14 +92,14 @@ function boxBlur(src: Float32Array, radius: number) {
   return out;
 }
 const around = boxBlur(boxBlur(lum, 7), 7);
-for (let i = 0; i < lum.length; i++) lum[i] = Math.max(0, lum[i] + 0.6 * (lum[i] - around[i]));
+for (let i = 0; i < lum.length; i++) lum[i] = Math.max(0, lum[i] + (cool[i] ? 1.3 : 0.6) * (lum[i] - around[i]));
 
 // Stretch brightness to fill the range, then push the mid-tones down a little.
 const sorted = Float32Array.from(lum).sort();
 const lo = sorted[Math.floor(sorted.length * 0.02)];
 const hi = sorted[Math.floor(sorted.length * 0.995)];
 for (let i = 0; i < lum.length; i++) {
-  lum[i] = Math.pow(Math.max(0, Math.min(1, (lum[i] - lo) / (hi - lo))), warm[i] ? 0.55 : 0.85) * 255;
+  lum[i] = Math.pow(Math.max(0, Math.min(1, (lum[i] - lo) / (hi - lo))), warm[i] ? 0.45 : 0.85) * 255;
 }
 
 // ---- lines, found on the finer grid ------------------------------------------------------------
