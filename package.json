@@ -6,6 +6,7 @@
     "dev": "bun --hot server.ts",
     "start": "bun server.ts",
     "build": "bun scripts/build.tsx",
+    "art": "bun scripts/prep-pagoda.ts && COLS=80 OUT=pagoda-small.json bun scripts/prep-pagoda.ts",
     "preview": "bun scripts/preview.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test ./test",

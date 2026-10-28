@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import art from "../src/art/pagoda.json";
+import wide from "../src/art/pagoda.json";
+import small from "../src/art/pagoda-small.json";
 import { posts } from "../src/data/posts";
 import { projects } from "../src/data/projects";
 import { pageMeta, routes } from "../src/meta";
@@ -43,7 +44,10 @@ describe("posts", () => {
   });
 });
 
-describe("pagoda art", () => {
+describe.each([
+  ["wide", wide],
+  ["small", small],
+])("pagoda art (%s)", (_name, art) => {
   const bytes = (s: string) => Buffer.from(s, "base64").length;
   const cells = art.cols * art.rows;
 
@@ -58,6 +62,11 @@ describe("pagoda art", () => {
     const allowed = new Set(art.ramp + "|-/\\");
     for (const ch of art.chars) expect(allowed.has(ch)).toBe(true);
   });
+});
+
+test("both pictures have the same shape, so the page layout does not jump", () => {
+  const shape = (a: typeof wide) => a.cols / (a.rows * 1.8);
+  expect(Math.abs(shape(wide) - shape(small))).toBeLessThan(0.01);
 });
 
 describe("page metadata", () => {

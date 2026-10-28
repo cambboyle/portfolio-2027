@@ -36,7 +36,7 @@ a:hover {
   min-height: calc(100vh - 56px);
   padding: 0 24px 48px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 820px);
+  grid-template-columns: minmax(340px, 1fr) minmax(320px, 820px);
   gap: 48px;
   align-items: center;
   max-width: 1440px;
@@ -74,7 +74,8 @@ a:hover {
   display: block;
 }
 
-@media (max-width: 760px) {
+/* two columns need about 1000px; below that the intro sits above the pagoda */
+@media (max-width: 1000px) {
   .home {
     grid-template-columns: minmax(0, 1fr);
     gap: 32px;
@@ -88,8 +89,9 @@ a:hover {
 
   .pagoda-wrap {
     width: 100%;
+    max-width: 720px;
     min-width: 0;
-    justify-self: stretch;
+    justify-self: start;
   }
 
   .nav ul {

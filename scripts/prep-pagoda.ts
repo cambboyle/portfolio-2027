@@ -1,16 +1,18 @@
 /**
  * Turns the pagoda photo into a grid of characters, once, ahead of time.
  *
- *   bun scripts/prep-pagoda.ts
+ *   bun scripts/prep-pagoda.ts                                  # the full 150-column picture
+ *   COLS=80 OUT=pagoda-small.json bun scripts/prep-pagoda.ts    # the coarser one for phones
+ *   bun run art                                                 # both
  *
  * For every cell it keeps: the character, a colour close to the photo's own, and the brightness. The browser redraws those cells every frame and adds the movement.
  *
  * Photo: "Temple near trees during day" by Svetlana Gumerova on Unsplash (see README.md).
  */
 const SRC = `${process.env.HOME}/Downloads/refs/pagoda-original/original.jpg`;
-const OUT = new URL("../src/art/pagoda.json", import.meta.url).pathname;
+const OUT = new URL(`../src/art/${process.env.OUT ?? "pagoda.json"}`, import.meta.url).pathname;
 
-const COLS = 150;
+const COLS = Number(process.env.COLS ?? 150);
 const CROP_W = 2800; // the pagoda, Fuji's summit and the town; the far right edge is trimmed
 const CROP_H = 3900; // from just above the spire down to the first maple leaves
 const CROP_Y = 100;
@@ -91,7 +93,8 @@ function boxBlur(src: Float32Array, radius: number) {
   }
   return out;
 }
-const around = boxBlur(boxBlur(lum, 7), 7);
+const radius = Math.max(3, Math.round((7 * COLS) / 150)); // the same share of the picture on either grid
+const around = boxBlur(boxBlur(lum, radius), radius);
 for (let i = 0; i < lum.length; i++) lum[i] = Math.max(0, lum[i] + (cool[i] ? 1.3 : 0.6) * (lum[i] - around[i]));
 
 // Stretch brightness to fill the range, then push the mid-tones down a little.

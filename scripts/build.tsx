@@ -23,6 +23,7 @@ const built = await Bun.build({
   entrypoints: [`${root}index.html`],
   outdir: `${root}dist`,
   minify: true,
+  splitting: true, // the phone and desktop pictures become separate files, loaded only when needed
   sourcemap: "linked",
   publicPath: "/", // absolute, so /projects/camdex finds /index-xxxx.js
 });

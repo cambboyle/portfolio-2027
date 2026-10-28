@@ -17,6 +17,12 @@ bun run test         # tests in test/
 bun run check        # typecheck, tests and build together
 ```
 
+## Small screens
+
+- Below 1000px wide the intro sits above the pagoda (two columns need about 1000px).
+- Screens up to 600px wide get the coarser 80-column picture, with bigger characters that are easier to see. Only the picture a device needs is downloaded.
+- Checked at 320, 360, 390, 768, 900, 1024 and 844 by 390 (a phone on its side): no sideways scrolling.
+
 ## Accessibility
 
 - Every page has a skip link, one `<h1>`, a labelled `<nav>` with `aria-current` on the page you are on, and a visible focus outline for keyboard users.
@@ -54,7 +60,7 @@ Ask the host to cache the hashed `.js` and `.css` files for a long time, and to 
 `scripts/prep-pagoda.ts` turns the photo into a grid of characters, once:
 
 ```sh
-bun scripts/prep-pagoda.ts
+bun run art    # makes src/art/pagoda.json (150 columns) and src/art/pagoda-small.json (80 columns, for phones)
 ```
 
 It reads the photo from `~/Downloads/refs/pagoda-original/original.jpg`, mirrors and crops it, shrinks it to 150 by 116 cells, picks a character per cell from its brightness (or from the edge direction where there is a strong line), colours it, and saves the result to `src/art/pagoda.json`. `src/PagodaArt.tsx` draws that picture once per size, then each frame copies it and redraws only the twinkling cells. Clicking or tapping the pagoda sends a gust through the petals.
