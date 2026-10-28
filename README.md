@@ -19,9 +19,9 @@ bun run check        # typecheck, tests and build together
 
 ## Building and SEO
 
-`bun run build` (`scripts/build.tsx`) bundles the app, then writes every page out as real HTML (`dist/projects/camdex/index.html` and so on) so search engines and link previews see the content without running JavaScript. The browser then attaches React to that HTML. It also writes `404.html`, `robots.txt` and the share image.
+`bun run build` (`scripts/build.tsx`) bundles the app, then writes every page out as real HTML (`dist/projects/camdex/index.html` and so on) so search engines and link previews see the content without running JavaScript. The browser then attaches React to that HTML. Each build starts from an empty `dist/`. It also writes `404.html`, `robots.txt` and the share image.
 
-Set the site's address once you know it, to get canonical links, absolute share URLs and `sitemap.xml`:
+Set the site's address once you know it, to get canonical links, absolute share URLs, `sitemap.xml` and an RSS feed of Notes at `/feed.xml`:
 
 ```sh
 SITE_URL=https://example.com bun run build

@@ -5,15 +5,19 @@
  *   3. write robots.txt (and sitemap.xml when SITE_URL is set)
  *
  *   bun run build
- *   SITE_URL=https://example.com bun run build     # adds canonical links, absolute share URLs and a sitemap
+ *   SITE_URL=https://example.com bun run build     # adds canonical links, absolute share URLs, a sitemap and an RSS feed
  */
 import { renderToString } from "react-dom/server";
-import { mkdir, cp } from "node:fs/promises";
+import { mkdir, cp, rm } from "node:fs/promises";
 import { App } from "../src/App";
 import { pageMeta, routes } from "../src/meta";
+import { rss } from "../src/feed";
+import { posts } from "../src/data/posts";
 
 const site = process.env.SITE_URL?.replace(/\/$/, "");
 const root = new URL("../", import.meta.url).pathname;
+
+await rm(`${root}dist`, { recursive: true, force: true }); // start clean, so nothing from an earlier build lingers
 
 const built = await Bun.build({
   entrypoints: [`${root}index.html`],
@@ -42,7 +46,10 @@ function page(path: string, indexable = true) {
   const extra: string[] = [];
   if (!indexable) extra.push('<meta name="robots" content="noindex" />');
   if (url) extra.push(`<link rel="canonical" href="${url}" />`, `<meta property="og:url" content="${url}" />`);
-  if (site) html = html.replace('content="/og.png"', `content="${site}/og.png"`);
+  if (site) {
+    html = html.replace('content="/og.png"', `content="${site}/og.png"`);
+    extra.push(`<link rel="alternate" type="application/rss+xml" title="Notes" href="${site}/feed.xml" />`);
+  }
   return html.replace("</head>", `${extra.join("\n    ")}\n  </head>`);
 }
 
@@ -58,6 +65,7 @@ await cp(`${root}public`, `${root}dist`, { recursive: true });
 await Bun.write(`${root}dist/robots.txt`, `User-agent: *\nAllow: /\n${site ? `\nSitemap: ${site}/sitemap.xml\n` : ""}`);
 if (site) {
   const urls = routes.map((r) => `  <url><loc>${site}${r === "/" ? "/" : r}</loc></url>`).join("\n");
+  await Bun.write(`${root}dist/feed.xml`, rss(site, posts));
   await Bun.write(`${root}dist/sitemap.xml`, `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`);
 }
 

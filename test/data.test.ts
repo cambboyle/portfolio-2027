@@ -3,6 +3,7 @@ import art from "../src/art/pagoda.json";
 import { posts } from "../src/data/posts";
 import { projects } from "../src/data/projects";
 import { pageMeta, routes } from "../src/meta";
+import { rss } from "../src/feed";
 
 describe("projects", () => {
   test("slugs are unique and URL-safe", () => {
@@ -72,5 +73,18 @@ describe("page metadata", () => {
       expect(m.description.length).toBeGreaterThan(10);
       expect(m.description.length).toBeLessThanOrEqual(160);
     }
+  });
+});
+
+describe("rss feed", () => {
+  test("has one item per post, with full links", () => {
+    const xml = rss("https://example.com", posts);
+    expect(xml.match(/<item>/g)?.length).toBe(posts.length);
+    expect(xml).toContain(`<link>https://example.com/notes/${posts[0].slug}</link>`);
+  });
+
+  test("escapes characters that would break the XML", () => {
+    const xml = rss("https://example.com", [{ slug: "a", title: "Go & <Rust>", date: "2026-01-02", body: ["x"] }]);
+    expect(xml).toContain("Go &amp; &lt;Rust&gt;");
   });
 });
