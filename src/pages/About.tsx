@@ -1,6 +1,6 @@
 export function About() {
   return (
-    <main id="main" className="page">
+    <main id="main" tabIndex={-1} className="page">
       <h1>About</h1>
       <ul className="facts">
         <li>Full stack developer in Newport, Wales, at Novira Technologies.</li>

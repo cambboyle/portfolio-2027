@@ -2,7 +2,7 @@ import { PagodaArt } from "../PagodaArt";
 
 export function Home() {
   return (
-    <main id="main" className="home">
+    <main id="main" tabIndex={-1} className="home">
       <section className="intro">
         <h1>Cameron Boyle</h1>
         <p className="tagline">I build things, break them, and keep learning how they work.</p>

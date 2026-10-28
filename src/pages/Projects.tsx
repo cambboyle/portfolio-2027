@@ -1,9 +1,9 @@
 import { projects } from "../data/projects";
-import { Link } from "../router";
+import { ExternalLink, Link } from "../router";
 
 export function Projects() {
   return (
-    <main id="main" className="page">
+    <main id="main" tabIndex={-1} className="page">
       <h1>Projects</h1>
       <ul className="list">
         {projects.map((p) => (
@@ -22,20 +22,20 @@ export function Project({ slug }: { slug: string }) {
   const p = projects.find((x) => x.slug === slug);
   if (!p || !p.study) {
     return (
-      <main id="main" className="page">
+      <main id="main" tabIndex={-1} className="page">
         <h1>Not found</h1>
         <Link to="/projects">Back to projects</Link>
       </main>
     );
   }
   return (
-    <main id="main" className="page">
+    <main id="main" tabIndex={-1} className="page">
       <h1>{p.name}</h1>
       <p className="muted">{p.stack}</p>
       <ul className="links">
-        {p.live && <li><a href={p.live} target="_blank" rel="noreferrer">live</a></li>}
-        {p.docs && <li><a href={p.docs} target="_blank" rel="noreferrer">docs</a></li>}
-        {p.repo && <li><a href={p.repo} target="_blank" rel="noreferrer">code</a></li>}
+        {p.live && <li><ExternalLink href={p.live}>live</ExternalLink></li>}
+        {p.docs && <li><ExternalLink href={p.docs}>docs</ExternalLink></li>}
+        {p.repo && <li><ExternalLink href={p.repo}>code</ExternalLink></li>}
       </ul>
       <h2>The problem</h2>
       {p.study.problem.map((t, i) => (

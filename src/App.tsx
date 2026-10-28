@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Link, usePath } from "./router";
+import { useEffect, useRef } from "react";
+import { ExternalLink, Link, usePath } from "./router";
 import { Home } from "./pages/Home";
 import { Projects, Project } from "./pages/Projects";
 import { Blog, Post } from "./pages/Blog";
@@ -8,20 +8,25 @@ import { NotFound } from "./pages/NotFound";
 import { pageMeta } from "./meta";
 
 function Nav({ path }: { path: string }) {
-  const item = (to: string, label: string) => (
-    <li>
-      <Link to={to}>{path === to || (to !== "/" && path.startsWith(to)) ? <b>{label}</b> : label}</Link>
-    </li>
-  );
+  const item = (to: string, label: string) => {
+    const current = path === to || (to !== "/" && path.startsWith(to));
+    return (
+      <li>
+        <Link to={to} current={current}>
+          {current ? <b>{label}</b> : label}
+        </Link>
+      </li>
+    );
+  };
   return (
-    <nav className="nav">
+    <nav className="nav" aria-label="Main">
       <ul>
         {item("/", "home")}
         {item("/projects", "projects")}
         {item("/notes", "notes")}
         {item("/about", "about")}
-        <li><a href="https://github.com/cambboyle" target="_blank" rel="noreferrer">github</a></li>
-        <li><a href="https://www.linkedin.com/in/cbb00/" target="_blank" rel="noreferrer">linkedin</a></li>
+        <li><ExternalLink href="https://github.com/cambboyle">github</ExternalLink></li>
+        <li><ExternalLink href="https://www.linkedin.com/in/cbb00/">linkedin</ExternalLink></li>
       </ul>
     </nav>
   );
@@ -29,10 +34,15 @@ function Nav({ path }: { path: string }) {
 
 export function App({ initialPath }: { initialPath?: string }) {
   const path = usePath(initialPath);
+  const first = useRef(true);
   useEffect(() => {
     const { title, description } = pageMeta(path);
     document.title = title;
     document.querySelector('meta[name="description"]')?.setAttribute("content", description);
+    // After moving to another page, put keyboard focus at the top of the new content (and let screen readers
+    // announce it), as a normal page load would. Skip the first render so the page doesn't steal focus on load.
+    if (first.current) first.current = false;
+    else document.getElementById("main")?.focus({ preventScroll: true });
   }, [path]);
   let page;
   if (path === "/projects") page = <Projects />;

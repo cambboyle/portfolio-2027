@@ -3,7 +3,7 @@ import { Link } from "../router";
 
 export function Blog() {
   return (
-    <main id="main" className="page">
+    <main id="main" tabIndex={-1} className="page">
       <h1>Notes</h1>
       <ul className="list">
         {posts.map((p) => (
@@ -21,14 +21,14 @@ export function Post({ slug }: { slug: string }) {
   const post = posts.find((p) => p.slug === slug);
   if (!post) {
     return (
-      <main id="main" className="page">
+      <main id="main" tabIndex={-1} className="page">
         <h1>Not found</h1>
         <Link to="/notes">Back to notes</Link>
       </main>
     );
   }
   return (
-    <main id="main" className="page">
+    <main id="main" tabIndex={-1} className="page">
       <h1>{post.title}</h1>
       <p className="muted">{post.date}</p>
       {post.body.map((para, i) => (

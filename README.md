@@ -17,6 +17,15 @@ bun run test         # tests in test/
 bun run check        # typecheck, tests and build together
 ```
 
+## Accessibility
+
+- Every page has a skip link, one `<h1>`, a labelled `<nav>` with `aria-current` on the page you are on, and a visible focus outline for keyboard users.
+- After moving to another page, focus goes to the page content so keyboard and screen reader users start at the top of what changed.
+- Links that open a new tab say so for screen readers (`ExternalLink` in `src/router.tsx`).
+- Text sizes use `rem`, so the browser's font-size setting and zoom both work; at 200% text on a 390px screen nothing scrolls sideways.
+- Nav and link rows are at least 24px tall, to be easy to tap.
+- The pagoda is a canvas with a text description, and it stops moving when the system asks for reduced motion.
+
 ## Building and SEO
 
 `bun run build` (`scripts/build.tsx`) bundles the app, then writes every page out as real HTML (`dist/projects/camdex/index.html` and so on) so search engines and link previews see the content without running JavaScript. The browser then attaches React to that HTML. Each build starts from an empty `dist/`. It also writes `404.html`, `robots.txt` and the share image.
