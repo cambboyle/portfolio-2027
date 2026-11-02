@@ -64,21 +64,22 @@ export const projects: Project[] = [
     name: "NetKit",
     blurb: "A cyber security kit that runs on a Raspberry Pi.",
     stack: "Go, Raspberry Pi",
-    study: {
-      problem: [
-        "TODO: Why did you build it? What were you trying to learn or fix, and what was annoying before it existed?",
-        "TODO: Who is it for (you, a home network, a lab)?",
-      ],
-      choices: [
-        { title: "TODO: first big decision", body: "TODO: what you chose, what you considered instead, and why." },
-        { title: "TODO: second decision", body: "TODO: tools, hardware, how it runs on the Pi." },
-        { title: "TODO: third decision", body: "TODO: anything about safety, scope or what it deliberately doesn't do." },
-      ],
-      result: [
-        "TODO: what it can do now, and what you learned about Go and security while building it.",
-      ],
-      next: ["TODO: what you'd change or build next, and what you'd do differently."],
-    },
+    // No case study yet, so NetKit is listed without its own page. To add one, paste the template below here
+    // (fill in every line, and add `repo` once the repository is public).
+    //
+    // study: {
+    //   problem: [
+    //     "Why did you build it? What were you trying to learn or fix, and what was annoying before it existed?",
+    //     "Who is it for (you, a home network, a lab)?",
+    //   ],
+    //   choices: [
+    //     { title: "First big decision", body: "What you chose, what you considered instead, and why." },
+    //     { title: "Second decision", body: "Tools, hardware, how it runs on the Pi." },
+    //     { title: "Third decision", body: "Anything about safety, scope or what it deliberately doesn't do." },
+    //   ],
+    //   result: ["What it can do now, and what you learned about Go and security while building it."],
+    //   next: ["What you'd change or build next, and what you'd do differently."],
+    // },
   },
   {
     slug: "camdex",

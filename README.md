@@ -18,7 +18,7 @@ These are checked by `bun run audit` and by CI, so a change that lowers them fai
 ## What's in it
 
 - **The pagoda.** A photo turned into a grid of characters ahead of time (`scripts/prep-pagoda.ts`). The browser draws it on a canvas, with petals on the wind that you can push with the cursor or a tap. Phones get a coarser picture with bigger characters.
-- **Pages.** Home, Projects (with a case study each: problem, choices, result), Notes and About. Content lives in plain data files, so adding a project or a post means adding an object.
+- **Pages.** Home, Projects (case studies: problem, choices, result), Notes and About. Content lives in plain data files, so adding a project or a post means adding an object.
 - **Pre-rendered HTML.** The build writes every page as real HTML, so search engines and link previews see the content without running JavaScript. React then attaches to it.
 - **Accessible by default.** Skip link, one `h1` per page, focus moves to the content after a page change, links that open a new tab say so, `rem` text sizes, large tap targets, and the pagoda stops moving for people who ask for reduced motion.
 - **Small and fast.** About 3 KB of CSS and JetBrains Mono at 43 KB are the only assets besides the script. The phone and desktop pictures are separate files, so a phone downloads only its own.
