@@ -17,6 +17,10 @@ bun run test         # tests in test/
 bun run check        # typecheck, tests and build together
 ```
 
+## Font
+
+No font file is loaded: the site uses the visitor's own monospace font (`--font` in `src/styles.css`: SF Mono or Menlo on a Mac, Consolas on Windows, DejaVu Sans Mono on Linux). That keeps the page fast, and monospace suits the pagoda. Geist Serif was tried and dropped.
+
 ## Small screens
 
 - Below 1000px wide the intro sits above the pagoda (two columns need about 1000px).
