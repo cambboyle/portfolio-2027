@@ -19,7 +19,7 @@ bun run check        # typecheck, tests and build together
 
 ## Font
 
-No font file is loaded: the site uses the visitor's own monospace font (`--font` in `src/styles.css`: SF Mono or Menlo on a Mac, Consolas on Windows, DejaVu Sans Mono on Linux). That keeps the page fast, and monospace suits the pagoda. Geist Serif was tried and dropped.
+The site uses [JetBrains Mono](https://www.jetbrains.com/lp/mono/) (SIL Open Font License; the licence text is in `public/fonts/`), in two weights, Latin only: about 43 KB. The `@font-face` rules are inline in `index.html`, and the files are served from `public/fonts/`. `font-display: swap` shows text straight away in a local monospace font that is sized to match JetBrains Mono (`JetBrains Mono Fallback` in `src/styles.css`), so little moves when the font arrives; the pagoda redraws once it has loaded.
 
 ## Small screens
 

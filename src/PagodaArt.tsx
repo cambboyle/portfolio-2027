@@ -93,7 +93,7 @@ function start(canvas: HTMLCanvasElement, art: Art) {
     canvas.width = still.width = Math.round(cssW * dpr);
     canvas.height = still.height = Math.round(cssH * dpr);
     canvas.style.height = `${cssH}px`;
-    const font = `${Math.round(ch * 0.9)}px ui-monospace, "SF Mono", Menlo, Consolas, monospace`;
+    const font = `${Math.round(ch * 0.9)}px "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace`;
     for (const c of [ctx, still.getContext("2d")!]) {
       c.setTransform(dpr, 0, 0, dpr, 0, 0);
       c.font = font;
@@ -231,7 +231,16 @@ function start(canvas: HTMLCanvasElement, art: Art) {
   if (reduced.matches) draw();
   else raf = requestAnimationFrame(frame);
 
+  // The canvas measures its characters, so draw again once the web font has arrived.
+  let stopped = false;
+  document.fonts?.load('400 14px "JetBrains Mono"').then(() => {
+    if (stopped) return;
+    size();
+    draw();
+  });
+
   return () => {
+    stopped = true;
     cancelAnimationFrame(raf);
     cancelAnimationFrame(pending);
     ro.disconnect();

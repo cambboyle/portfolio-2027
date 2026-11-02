@@ -97,3 +97,14 @@ describe("rss feed", () => {
     expect(xml).toContain("Go &amp; &lt;Rust&gt;");
   });
 });
+
+describe("fonts", () => {
+  const html = Bun.file(new URL("../index.html", import.meta.url).pathname).text();
+
+  test("every font the page asks for exists, and the licence is kept beside them", async () => {
+    const wanted = [...(await html).matchAll(/url\("\/fonts\/([^"]+)"\)/g)].map((m) => m[1]);
+    expect(wanted.length).toBeGreaterThan(0);
+    for (const file of wanted) expect(await Bun.file(new URL(`../public/fonts/${file}`, import.meta.url).pathname).exists()).toBe(true);
+    expect(await Bun.file(new URL("../public/fonts/LICENSE-JetBrainsMono.txt", import.meta.url).pathname).exists()).toBe(true);
+  });
+});
