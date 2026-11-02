@@ -54,10 +54,12 @@ function page(path: string, indexable = true) {
   return html.replace("</head>", `${extra.join("\n    ")}\n  </head>`);
 }
 
+// "/" is index.html and every other page is a flat file ("/projects/camdex" becomes projects/camdex.html), which the
+// host serves at the address without ".html" (cleanUrls in vercel.json)
 for (const path of routes) {
-  const dir = path === "/" ? `${root}dist` : `${root}dist${path}`;
-  await mkdir(dir, { recursive: true });
-  await Bun.write(`${dir}/index.html`, page(path));
+  const file = path === "/" ? `${root}dist/index.html` : `${root}dist${path}.html`;
+  await mkdir(file.slice(0, file.lastIndexOf("/")), { recursive: true });
+  await Bun.write(file, page(path));
 }
 await Bun.write(`${root}dist/404.html`, page("/404", false));
 

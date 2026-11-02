@@ -108,3 +108,30 @@ describe("fonts", () => {
     expect(await Bun.file(new URL("../public/fonts/LICENSE-JetBrainsMono.txt", import.meta.url).pathname).exists()).toBe(true);
   });
 });
+
+describe("host settings (vercel.json)", () => {
+  const read = () => Bun.file(new URL("../vercel.json", import.meta.url).pathname).json();
+  const headerOf = (config: any, source: string, key: string) =>
+    config.headers.find((h: any) => h.source === source)?.headers.find((h: any) => h.key === key)?.value as string | undefined;
+
+  test("builds with Bun into dist, with clean addresses and no trailing slash", async () => {
+    const c = await read();
+    expect(c.buildCommand).toBe("bun run build");
+    expect(c.outputDirectory).toBe("dist");
+    expect(c.cleanUrls).toBe(true);
+    expect(c.trailingSlash).toBe(false);
+  });
+
+  test("sends a content security policy that allows no outside or inline scripts", async () => {
+    const csp = headerOf(await read(), "/(.*)", "Content-Security-Policy")!;
+    expect(csp).toContain("default-src 'self'");
+    expect(csp).toContain("script-src 'self'");
+    expect(csp).not.toMatch(/script-src[^;]*(https?:|'unsafe-inline'|'unsafe-eval')/);
+  });
+
+  test("caches the bundle for a year and fonts for a month", async () => {
+    const c = await read();
+    expect(headerOf(c, "/chunk-(.*)", "Cache-Control")).toBe("public, max-age=31536000, immutable");
+    expect(headerOf(c, "/fonts/(.*)", "Cache-Control")).toBe("public, max-age=2592000");
+  });
+});

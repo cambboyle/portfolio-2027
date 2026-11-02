@@ -38,13 +38,20 @@ bun run check        # typecheck, tests and build together
 
 `bun run audit` fails if any Lighthouse score drops below its limit (performance 95, the rest 100), if the keyboard order or focus handling breaks, if any page scrolls sideways from 320px to 1440px wide, if a link is too small to tap, or if there are console errors.
 
-To get canonical links, absolute share-image URLs, a sitemap and an RSS feed of Notes, build with the site's address:
+## Deploying
 
-```sh
-SITE_URL=https://example.com bun run build
-```
+The site is static, so it runs on any static host. I use [Vercel](https://vercel.com) (free Hobby plan), connected to this repository, at <https://cambboyle.me>. `vercel.json` holds the settings, so there is nothing to type into the dashboard except one variable:
 
-Ask the host to cache the hashed `.js` and `.css` files for a long time, and to serve `404.html` for unknown addresses.
+| Where              | Setting                                                         |
+| ------------------ | --------------------------------------------------------------- |
+| `vercel.json`      | `bun install --frozen-lockfile`, `bun run build`, output `dist` |
+| `vercel.json`      | `cleanUrls` on and `trailingSlash` off, so `about.html` is served at `/about` |
+| `vercel.json`      | security headers, and long caching for the hashed files        |
+| Vercel dashboard   | environment variable `SITE_URL` = `https://cambboyle.me`        |
+
+`SITE_URL` makes the build write canonical links, absolute share-image URLs, `sitemap.xml` and an RSS feed of Notes (`/feed.xml`); without it they are left out.
+
+The headers include a content security policy that allows no outside scripts. `bun run preview` and `bun run audit` read the same `vercel.json`, so a rule that would break the site shows up before it is live. The build writes each page as a flat file (`dist/projects/camdex.html`), and Vercel serves a missing address with `404.html`.
 
 ## Where things live
 
