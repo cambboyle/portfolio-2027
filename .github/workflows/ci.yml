@@ -15,3 +15,13 @@ jobs:
       - run: bun run typecheck
       - run: bun run test
       - run: bun run build
+
+  # Lighthouse scores and real-browser checks on the built site. Fails if accessibility, SEO or speed slip.
+  audit:
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run audit

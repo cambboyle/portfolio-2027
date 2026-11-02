@@ -10,7 +10,8 @@
     "preview": "bun scripts/preview.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test ./test",
-    "check": "bun run typecheck && bun test && bun run build"
+    "audit": "bun run build && bun scripts/audit.ts",
+    "check": "bun run typecheck && bun run test && bun run build"
   },
   "dependencies": {
     "react": "^19.3.1",
