@@ -1,6 +1,6 @@
 # cbb00-portfolio
 
-My personal site: a small animated pagoda drawn entirely in text characters, with my projects, notes and a bit about me.
+My [Cameron Boyle] personal site: a small animated pagoda drawn entirely in text characters, with my projects, notes and a bit about me.
 
 ![The home page: an intro on the left and a pagoda with Mount Fuji drawn in characters on the right](public/og.png)
 
@@ -42,12 +42,12 @@ bun run check        # typecheck, tests and build together
 
 The site is static, so it runs on any static host. I use [Vercel](https://vercel.com) (free Hobby plan), connected to this repository, at <https://cambboyle.me>. `vercel.json` holds the settings, so there is nothing to type into the dashboard except one variable:
 
-| Where              | Setting                                                         |
-| ------------------ | --------------------------------------------------------------- |
-| `vercel.json`      | `bun install --frozen-lockfile`, `bun run build`, output `dist` |
-| `vercel.json`      | `cleanUrls` on and `trailingSlash` off, so `about.html` is served at `/about` |
-| `vercel.json`      | security headers, and long caching for the hashed files        |
-| Vercel dashboard   | environment variable `SITE_URL` = `https://cambboyle.me`        |
+| Where            | Setting                                                                       |
+| ---------------- | ----------------------------------------------------------------------------- |
+| `vercel.json`    | `bun install --frozen-lockfile`, `bun run build`, output `dist`               |
+| `vercel.json`    | `cleanUrls` on and `trailingSlash` off, so `about.html` is served at `/about` |
+| `vercel.json`    | security headers, and long caching for the hashed files                       |
+| Vercel dashboard | environment variable `SITE_URL` = `https://cambboyle.me`                      |
 
 `SITE_URL` makes the build write canonical links, absolute share-image URLs, `sitemap.xml` and an RSS feed of Notes (`/feed.xml`); without it they are left out.
 
