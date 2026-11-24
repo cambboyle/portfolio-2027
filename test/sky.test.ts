@@ -22,7 +22,7 @@ test("the Moon map is the same on every visit, and has both bright and dark grou
   expect(Math.max(...a) - Math.min(...a)).toBeGreaterThan(0.5);
 });
 
-test("the ship's shape: inside the hull is negative, far away is positive", () => {
+test("the station's shape: inside the sphere is negative, far away is positive", () => {
   expect(scene(0, 0, 0)).toBeLessThan(0);
   expect(scene(0, 2, 0)).toBeGreaterThan(1);
 });
@@ -31,5 +31,5 @@ test("a ray through the middle of the ship hits it, and one through empty space 
   const m = shipMatrix(0);
   const sun = [0, 0, 1];
   expect(cast(0, 0, m, sun).kind).not.toBe(0);
-  expect(cast(0, 1.1, m, sun).kind).toBe(0);
+  expect(cast(0.95, 0.95, m, sun).kind).toBe(0);
 });

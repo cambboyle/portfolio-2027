@@ -80,7 +80,7 @@ The home page shows a turning globe drawn in characters, lit by a sun off to one
 - **How it stays cheap:** `src/SkyArt.tsx` works out once per size where each cell falls on the sphere (axis tilted 23.4°) and how much sun it gets. As the globe turns it only looks up what is under each cell.
 - Drag sideways to spin it.
 
-**Easter egg.** Every three to five minutes the globe fades out and a ship the size of a small moon drifts past for a while: the *Wayfarer*, an original design (a long six-sided hull, three docking rings, X-shaped stern fins, a glowing engine core). It is ray marched from a signed distance function in `src/sky/ship.ts`. Double-click the globe to call it.
+**Easter egg.** Every three to five minutes the globe fades out and a station the size of a small moon drifts past for a while: the *Wayfarer*, an original design (a plated sphere, a broken ring orbiting clear of its surface, and a spire at each pole with a glowing tip). It is ray marched from a signed distance function in `src/sky/ship.ts`. Double-click the globe to call it.
 
 ## Font
 
