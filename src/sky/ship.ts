@@ -1,22 +1,21 @@
 /**
  * The easter egg: the Wayfarer, a made-up station the size of a small moon.
  *
- * A sphere covered in plating, a broken ring orbiting clear of its surface, and a spire at each pole with a glowing
- * tip. It is drawn by ray marching a signed distance function: for each character cell, step along a ray until it
- * meets the surface, then shade that point.
+ * A sphere clad in metal plates, with a short spire at each pole ending in a glowing tip. It is drawn by ray marching
+ * a signed distance function: for each character cell, step along a ray until it meets the surface, then shade that
+ * point. The plates catch the light like metal: each is tilted very slightly differently, and a sharp highlight
+ * moves across them as the station turns.
  *
- * Station coordinates: y is the axis through the spires, the ring lies in the xz plane. The sphere has radius 0.62.
+ * Station coordinates: y is the axis through the spires. The sphere has radius 1, the same size as the Moon.
  */
 
-const R = 0.62;
-const RING = 0.9;
+const R = 1;
 
 // what the last call to `scene` hit, so the hot loop does not allocate objects
 let material = 0;
 let glowDist = 9;
 
 const HULL = 0;
-const RINGM = 1;
 const SPIRE = 2;
 const TIP = 3;
 
@@ -24,25 +23,17 @@ export function scene(x: number, y: number, z: number): number {
   // the sphere
   let d = Math.hypot(x, y, z) - R;
   material = HULL;
-  // the ring: a flat band, broken into twelve segments with gaps between them
+  // the spires: short and tapering, standing out from each pole
   const flat = Math.hypot(x, z);
-  const angle = Math.atan2(z, x);
-  const gap = Math.abs((((angle / (Math.PI * 2)) * 12 + 12) % 1) - 0.5) < 0.06 ? 0.04 : 0;
-  const ring = Math.max(Math.abs(flat - RING) - 0.07, Math.abs(y) - 0.018) + gap;
-  if (ring < d) {
-    d = ring;
-    material = RINGM;
-  }
-  // the spires: thin and tapering, standing out from each pole
   const ay = Math.abs(y);
-  const along = Math.min(Math.max(ay - R + 0.05, 0), 0.26);
-  const spire = Math.max(flat - 0.035 * (1 - along / 0.3), ay - (R + 0.21), R - 0.05 - ay);
+  const along = Math.min(Math.max(ay - R + 0.05, 0), 0.14);
+  const spire = Math.max(flat - 0.03 * (1 - along / 0.16), ay - (R + 0.1), R - 0.05 - ay);
   if (spire < d) {
     d = spire;
     material = SPIRE;
   }
   // the glowing tips
-  const tip = Math.hypot(x, ay - (R + 0.25), z) - 0.045;
+  const tip = Math.hypot(x, ay - (R + 0.13), z) - 0.035;
   glowDist = Math.min(glowDist, tip);
   if (tip < d) {
     d = tip;
@@ -97,34 +88,49 @@ export function cast(sx: number, sy: number, m: Float32Array, sun: readonly numb
       const snx = (m[0] * nx + m[3] * ny + m[6] * nz) / nl;
       const sny = (m[1] * nx + m[4] * ny + m[7] * nz) / nl;
       const snz = (m[2] * nx + m[5] * ny + m[8] * nz) / nl;
-      const lit = Math.max(0, snx * sun[0] + sny * sun[1] + snz * sun[2]);
-      let shade = 1;
+      let px = snx;
+      let py = sny;
+      let pz = snz;
+      let shade = 0.85;
+      let seam = false;
       if (mat === HULL) {
-        // plating: bands of latitude split into panels, each a shade different, with dark seams between them
+        // plating: bands of latitude split into plates (fewer near the poles, so they stay roughly square)
         const lat = Math.acos(Math.max(-1, Math.min(1, oy / R))) / Math.PI; // 0 at the top, 1 at the bottom
         const lon = (Math.atan2(oz, ox) / (Math.PI * 2) + 1) % 1;
-        const band = Math.floor(lat * 14);
-        const across = Math.max(4, Math.round(Math.sin(((band + 0.5) / 14) * Math.PI) * 32));
+        const fy = lat * 22;
+        const band = Math.floor(fy);
+        const across = Math.max(6, Math.round(Math.sin(((band + 0.5) / 22) * Math.PI) * 56));
         const fx = lon * across;
-        const fy = lat * 14;
-        const panel = Math.floor(fx);
-        const seam = fx - panel < 0.08 || fy - band < 0.1;
-        shade = seam ? 0.55 : 0.8 + 0.2 * hash2(band, panel);
-        // windows: on the shadowed side, a few panels have a lit row
-        if (lit < 0.25 && !seam && fy - band > 0.45 && fy - band < 0.7 && hash2(band + 100, panel) < 0.22) {
+        const plate = Math.floor(fx);
+        seam = fx - plate < 0.1 || fy - band < 0.12;
+        // each plate is a slightly different metal, and sits at a very slightly different angle
+        shade = seam ? 0.35 : 0.72 + 0.28 * hash2(band, plate);
+        const wob = 0.12;
+        px += (hash2(band + 7, plate) - 0.5) * wob;
+        py += (hash2(band + 13, plate) - 0.5) * wob;
+        pz += (hash2(band + 29, plate) - 0.5) * wob;
+        const pl = Math.hypot(px, py, pz);
+        px /= pl;
+        py /= pl;
+        pz /= pl;
+        const diffuse = px * sun[0] + py * sun[1] + pz * sun[2];
+        // windows: on the shadowed side, a few plates have a lit slot
+        if (diffuse < 0.15 && !seam && fy - band > 0.45 && fy - band < 0.7 && hash2(band + 100, plate) < 0.12) {
           out.kind = 2;
           out.light = 1;
           return out;
         }
-      } else if (mat === SPIRE) shade = 0.85;
-      else {
-        // the ring is a flat band seen almost edge on, so it gets little direct sun: lift it so it reads
-        out.kind = 1;
-        out.light = Math.min(1, 0.35 + 0.65 * lit);
-        return out;
       }
+      const lit = Math.max(0, px * sun[0] + py * sun[1] + pz * sun[2]);
+      // a sharp highlight where the sun reflects towards us, as on polished metal (Blinn-Phong: the half vector
+      // between the sun and the viewer, who looks along -z)
+      const hx = sun[0];
+      const hy = sun[1];
+      const hz = sun[2] + 1;
+      const hl = Math.hypot(hx, hy, hz);
+      const spec = seam ? 0 : Math.max(0, (px * hx + py * hy + pz * hz) / hl) ** 36;
       out.kind = 1;
-      out.light = (0.1 + 0.9 * lit) * shade;
+      out.light = Math.min(1, (0.06 + 0.6 * lit) * shade + spec * 0.9);
       return out;
     }
     const s = d * 0.9;

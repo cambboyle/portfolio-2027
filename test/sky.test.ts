@@ -31,5 +31,5 @@ test("a ray through the middle of the ship hits it, and one through empty space 
   const m = shipMatrix(0);
   const sun = [0, 0, 1];
   expect(cast(0, 0, m, sun).kind).not.toBe(0);
-  expect(cast(0.95, 0.95, m, sun).kind).toBe(0);
+  expect(cast(1.1, 0.2, m, sun).kind).toBe(0);
 });

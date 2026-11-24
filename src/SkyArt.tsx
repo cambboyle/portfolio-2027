@@ -228,7 +228,7 @@ function start(canvas: HTMLCanvasElement, cols: number, theme: Theme): Sky {
     shipMatrix((t - shipAt) * 0.12, m);
     for (let i = 0; i < cols * rows; i++) {
       // skip cells the station can never reach
-      if (Math.abs(sy[i]) > 1 || Math.abs(sx[i]) > 1) continue;
+      if (Math.abs(sy[i]) > 1.2 || Math.abs(sx[i]) > 1.05) continue;
       const hit = cast(sx[i], sy[i], m, SHIP_SUN);
       if (hit.kind === 0) continue;
       if (hit.kind === 1) {
