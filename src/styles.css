@@ -84,6 +84,21 @@ a:hover {
   display: block;
 }
 
+/* the globe is square, so it can be as tall as it is wide */
+.earth-wrap {
+  width: min(100%, 640px, calc(100vh - 96px));
+}
+
+.earth {
+  width: 100%;
+  display: block;
+  cursor: grab;
+}
+
+.earth:active {
+  cursor: grabbing;
+}
+
 /* two columns need about 1000px; below that the intro sits above the pagoda */
 @media (max-width: 1000px) {
   .home {
