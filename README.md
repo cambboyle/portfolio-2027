@@ -71,9 +71,16 @@ bun run art    # makes src/art/pagoda.json (150 columns) and src/art/pagoda-smal
 
 `scripts/prep-pagoda.ts` reads the photo, mirrors and crops it, and shrinks it to a grid of cells. Each cell gets a character from its brightness (or from the edge direction where there is a strong line) and a colour from the photo. Local contrast is added so Mount Fuji's slope and the pagoda's roofs stand out, the open sky is dimmed so it frames the subject, and shadows are lifted. The photo itself is not in the repository; the script expects it at `~/Downloads/refs/pagoda-original/original.jpg`.
 
-## The globe (experiment, branch `experiment/earth`)
+## The sky (branch `experiment/earth`)
 
-A turning Earth in characters, lit by a sun off to one side so half of it is in night. `bun scripts/prep-earth.ts` turns Natural Earth's coastlines into a 512×256 land/sea bitmap (`src/art/earth.json`, 22 KB). `src/EarthArt.tsx` works out once per size where each cell falls on the sphere (with the axis tilted 23.4°) and how much sun it gets; as the globe turns it only has to look up which land is under each cell. The night side is drawn faintly so the disc stays round, with amber dots for towns. Drag sideways to spin it.
+The home page shows a turning globe drawn in characters, lit by a sun off to one side so half of it is in night: **the Earth on the light theme, the Moon on the dark one**. The site follows the device's light or dark setting, and the toggle at the end of the nav overrides it; the choice is saved and applied by `public/theme.js` before the page paints, so there is no flash.
+
+- **Earth:** `bun scripts/prep-earth.ts` turns Natural Earth's coastlines into a 512×256 land/sea bitmap (`src/art/earth.json`, 22 KB). The night side is drawn faintly so the disc stays round, with amber dots for towns.
+- **Moon:** a made-up surface (seas, craters with bright rims) generated from a fixed seed the first time it is needed (`src/sky/moon.ts`).
+- **How it stays cheap:** `src/SkyArt.tsx` works out once per size where each cell falls on the sphere (axis tilted 23.4°) and how much sun it gets. As the globe turns it only looks up what is under each cell.
+- Drag sideways to spin it.
+
+**Easter egg.** Every three to five minutes the globe fades out and a ship the size of a small moon drifts past for a while: the *Wayfarer*, an original design (a long six-sided hull, three docking rings, X-shaped stern fins, a glowing engine core). It is ray marched from a signed distance function in `src/sky/ship.ts`. Double-click the globe to call it.
 
 ## Font
 
@@ -82,5 +89,5 @@ A turning Earth in characters, lit by a sun off to one side so half of it is in 
 ## Credits
 
 - **Photo:** [Temple near trees during day](https://unsplash.com/photos/temple-near-trees-during-day-PMkQ7WVWqr0) by Svetlana Gumerova ([@bananablackcat](https://unsplash.com/@bananablackcat)) on [Unsplash](https://unsplash.com), used under the [Unsplash License](https://unsplash.com/license). The site shows an ASCII version of it, not the photo itself.
-- **Coastlines (globe experiment):** [Natural Earth](https://www.naturalearthdata.com) (public domain), via [world-atlas](https://github.com/topojson/world-atlas) (ISC).
+- **Coastlines:** [Natural Earth](https://www.naturalearthdata.com) (public domain), via [world-atlas](https://github.com/topojson/world-atlas) (ISC).
 - **Font:** JetBrains Mono, by the JetBrains Mono Project Authors, under the SIL Open Font License 1.1.

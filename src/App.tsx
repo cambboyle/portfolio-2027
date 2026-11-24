@@ -6,6 +6,18 @@ import { Blog, Post } from "./pages/Blog";
 import { About } from "./pages/About";
 import { NotFound } from "./pages/NotFound";
 import { pageMeta } from "./meta";
+import { setTheme, useTheme } from "./theme";
+
+function ThemeToggle() {
+  const theme = useTheme();
+  // the label names the theme it switches to; before the page knows the theme it just says "theme"
+  const other = theme === "light" ? "dark" : theme === "dark" ? "light" : null;
+  return (
+    <button type="button" className="theme-toggle" aria-label={other ? `Switch to ${other} theme` : "Switch theme"} onClick={() => other && setTheme(other)}>
+      {other ?? "theme"}
+    </button>
+  );
+}
 
 function Nav({ path }: { path: string }) {
   const item = (to: string, label: string) => {
@@ -27,6 +39,7 @@ function Nav({ path }: { path: string }) {
         {item("/about", "about")}
         <li><ExternalLink href="https://github.com/cambboyle">github</ExternalLink></li>
         <li><ExternalLink href="https://www.linkedin.com/in/cbb00/">linkedin</ExternalLink></li>
+        <li><ThemeToggle /></li>
       </ul>
     </nav>
   );

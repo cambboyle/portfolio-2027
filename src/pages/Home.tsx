@@ -1,4 +1,4 @@
-import { EarthArt } from "../EarthArt";
+import { SkyArt } from "../SkyArt";
 
 export function Home() {
   return (
@@ -13,7 +13,7 @@ export function Home() {
           <cite lang="ja">七転び八起き · Japanese proverb</cite>
         </blockquote>
       </section>
-      <EarthArt />
+      <SkyArt />
     </main>
   );
 }

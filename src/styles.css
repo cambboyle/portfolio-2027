@@ -7,6 +7,26 @@
   color-scheme: dark;
 }
 
+/* The light theme: warm paper and dark ink. Used when the device asks for light and nothing else was picked,
+   or when it was picked with the toggle (public/theme.js and src/theme.ts set data-theme on <html>). */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f4efe4;
+    --ink: #1d2230;
+    --muted: #545c6c;
+    --accent: #3249b8;
+    color-scheme: light;
+  }
+}
+
+:root[data-theme="light"] {
+  --bg: #f4efe4;
+  --ink: #1d2230;
+  --muted: #545c6c;
+  --accent: #3249b8;
+  color-scheme: light;
+}
+
 /* While the font loads, a local monospace stretched to JetBrains Mono's measurements, so the text barely moves when it arrives */
 @font-face {
   font-family: "JetBrains Mono Fallback";
@@ -146,6 +166,27 @@ a:hover {
 
 .nav a {
   text-decoration: none;
+}
+
+/* the theme toggle looks like the nav links next to it */
+.theme-toggle {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 4px 2px;
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 2px;
 }
 
 .nav a:hover {

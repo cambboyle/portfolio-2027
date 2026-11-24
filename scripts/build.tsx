@@ -43,6 +43,9 @@ function page(path: string, indexable = true) {
     .replace(/(<meta name="description" content=")[^"]*"/, `$1${esc(description)}"`)
     .replace(/(<meta property="og:title" content=")[^"]*"/, `$1${esc(title)}"`)
     .replace(/(<meta property="og:description" content=")[^"]*"/, `$1${esc(description)}"`)
+    // the saved theme is applied by a tiny blocking script before first paint (Bun's bundler can't take an absolute
+    // path in the HTML, so it goes in here)
+    .replace(/(<meta name="theme-color"[^>]*light[^>]*>)/, '$1\n    <script src="/theme.js"></script>')
     .replace('<div id="root"></div>', `<div id="root">${renderToString(<App initialPath={path} />)}</div>`);
   const extra: string[] = [];
   if (!indexable) extra.push('<meta name="robots" content="noindex" />');
