@@ -129,6 +129,15 @@ describe("host settings (vercel.json)", () => {
     expect(csp).not.toMatch(/script-src[^;]*(https?:|'unsafe-inline'|'unsafe-eval')/);
   });
 
+  test("lets the page ask one outside address only, the space station's position, and nothing else", async () => {
+    const csp = headerOf(await read(), "/(.*)", "Content-Security-Policy")!;
+    const connect = csp.split(";").map((d) => d.trim()).find((d) => d.startsWith("connect-src"));
+    expect(connect).toBe("connect-src 'self' https://api.wheretheiss.at");
+    // no wildcard and no whole scheme (like https:) allowed as a source anywhere in the policy
+    const tokens = csp.split(/[\s;]+/);
+    for (const bad of ["*", "https:", "http:", "ws:", "wss:"]) expect(tokens).not.toContain(bad);
+  });
+
   test("caches the bundle for a year and fonts for a month", async () => {
     const c = await read();
     expect(headerOf(c, "/chunk-(.*)", "Cache-Control")).toBe("public, max-age=31536000, immutable");

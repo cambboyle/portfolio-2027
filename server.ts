@@ -4,6 +4,7 @@ const server = Bun.serve({
   port: Number(process.env.PORT ?? 3000),
   routes: {
     "/og.png": () => new Response(Bun.file("./public/og.png")),
+    "/theme.js": () => new Response(Bun.file("./public/theme.js")),
     "/fonts/:file": (req) => {
       const file = req.params.file;
       // only plain font file names, never a path

@@ -6,6 +6,29 @@ import { Blog, Post } from "./pages/Blog";
 import { About } from "./pages/About";
 import { NotFound } from "./pages/NotFound";
 import { pageMeta } from "./meta";
+import { changeTheme } from "./themeTransition";
+import { Comet } from "./Comet";
+import { Dock } from "./Dock";
+import { Footer } from "./Footer";
+import { Idle } from "./Idle";
+import { Trail } from "./Trail";
+import { useTheme } from "./theme";
+
+function ThemeToggle() {
+  const theme = useTheme();
+  // the label names the theme it switches to; before the page knows the theme it just says "theme"
+  const other = theme === "light" ? "dark" : theme === "dark" ? "light" : null;
+  return (
+    <button type="button" className="theme-toggle" aria-label={other ? `Switch to ${other} theme` : "Switch theme"} onClick={(e) => {
+        if (!other) return;
+        // the new theme grows out from the button
+        const box = e.currentTarget.getBoundingClientRect();
+        changeTheme(other, { x: box.left + box.width / 2, y: box.top + box.height / 2 });
+      }}>
+      {other ?? "theme"}
+    </button>
+  );
+}
 
 function Nav({ path }: { path: string }) {
   const item = (to: string, label: string) => {
@@ -27,6 +50,7 @@ function Nav({ path }: { path: string }) {
         {item("/about", "about")}
         <li><ExternalLink href="https://github.com/cambboyle">github</ExternalLink></li>
         <li><ExternalLink href="https://www.linkedin.com/in/cbb00/">linkedin</ExternalLink></li>
+        <li><ThemeToggle /></li>
       </ul>
     </nav>
   );
@@ -57,6 +81,11 @@ export function App({ initialPath }: { initialPath?: string }) {
       <a className="skip" href="#main">Skip to content</a>
       <Nav path={path} />
       {page}
+      <Footer />
+      <Dock />
+      <Trail />
+      <Comet />
+      <Idle active={path === "/"} />
     </>
   );
 }

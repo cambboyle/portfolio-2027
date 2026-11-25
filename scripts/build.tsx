@@ -19,6 +19,25 @@ const root = new URL("../", import.meta.url).pathname;
 
 await rm(`${root}dist`, { recursive: true, force: true }); // start clean, so nothing from an earlier build lingers
 
+// facts for the footer: the date, the commit and how many commits (left out when the history is cut short, as on
+// a shallow clone, so the number is never wrong)
+const git = async (...args: string[]) => {
+  try {
+    return (await Bun.$`git ${args}`.cwd(root).quiet().text()).trim();
+  } catch {
+    return "";
+  }
+};
+const sha = (process.env.VERCEL_GIT_COMMIT_SHA ?? (await git("rev-parse", "HEAD"))).slice(0, 7) || null;
+const shallow = (await git("rev-parse", "--is-shallow-repository")) !== "false";
+const count = Number(await git("rev-list", "--count", "HEAD"));
+const buildInfo = JSON.stringify({
+  date: new Date().toISOString().slice(0, 10),
+  sha,
+  commits: !shallow && count > 0 ? count : null,
+});
+process.env.BUILD_INFO = buildInfo; // for the prerender below
+
 const built = await Bun.build({
   entrypoints: [`${root}index.html`],
   outdir: `${root}dist`,
@@ -26,6 +45,7 @@ const built = await Bun.build({
   splitting: true, // the phone and desktop pictures become separate files, loaded only when needed
   sourcemap: "linked",
   publicPath: "/", // absolute, so /projects/camdex finds /index-xxxx.js
+  define: { "process.env.BUILD_INFO": JSON.stringify(buildInfo) }, // the same facts in the browser, so the pages match
 });
 if (!built.success) {
   for (const log of built.logs) console.error(log);
@@ -43,6 +63,9 @@ function page(path: string, indexable = true) {
     .replace(/(<meta name="description" content=")[^"]*"/, `$1${esc(description)}"`)
     .replace(/(<meta property="og:title" content=")[^"]*"/, `$1${esc(title)}"`)
     .replace(/(<meta property="og:description" content=")[^"]*"/, `$1${esc(description)}"`)
+    // the saved theme is applied by a tiny blocking script before first paint (Bun's bundler can't take an absolute
+    // path in the HTML, so it goes in here)
+    .replace(/(<meta name="theme-color"[^>]*light[^>]*>)/, '$1\n    <script src="/theme.js"></script>')
     .replace('<div id="root"></div>', `<div id="root">${renderToString(<App initialPath={path} />)}</div>`);
   const extra: string[] = [];
   if (!indexable) extra.push('<meta name="robots" content="noindex" />');

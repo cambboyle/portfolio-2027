@@ -43,3 +43,6 @@ archive/
 # Claude Code project notes, kept on my machine only
 CLAUDE.md
 .claude/
+
+# my own notes, kept on my machine only
+docs/
