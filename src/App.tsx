@@ -6,14 +6,21 @@ import { Blog, Post } from "./pages/Blog";
 import { About } from "./pages/About";
 import { NotFound } from "./pages/NotFound";
 import { pageMeta } from "./meta";
-import { setTheme, useTheme } from "./theme";
+import { changeTheme } from "./themeTransition";
+import { PauseButton } from "./PauseButton";
+import { useTheme } from "./theme";
 
 function ThemeToggle() {
   const theme = useTheme();
   // the label names the theme it switches to; before the page knows the theme it just says "theme"
   const other = theme === "light" ? "dark" : theme === "dark" ? "light" : null;
   return (
-    <button type="button" className="theme-toggle" aria-label={other ? `Switch to ${other} theme` : "Switch theme"} onClick={() => other && setTheme(other)}>
+    <button type="button" className="theme-toggle" aria-label={other ? `Switch to ${other} theme` : "Switch theme"} onClick={(e) => {
+        if (!other) return;
+        // the new theme grows out from the button
+        const box = e.currentTarget.getBoundingClientRect();
+        changeTheme(other, { x: box.left + box.width / 2, y: box.top + box.height / 2 });
+      }}>
       {other ?? "theme"}
     </button>
   );
@@ -70,6 +77,7 @@ export function App({ initialPath }: { initialPath?: string }) {
       <a className="skip" href="#main">Skip to content</a>
       <Nav path={path} />
       {page}
+      {path === "/" && <PauseButton />}
     </>
   );
 }

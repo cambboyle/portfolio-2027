@@ -1,19 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import earth from "./art/earth.json";
 import { MOON_H, MOON_W, moonMap } from "./sky/moon";
+import { isPaused, useMotionPaused } from "./motion";
+import { skyPose } from "./sky/orbit";
 import { cast, shipMatrix } from "./sky/ship";
 import { type Theme, readTheme, useTheme } from "./theme";
 
 const RAMP = " .,:;-=+*#%@";
 const LEVELS = RAMP.length;
-const TILT = (23.4 * Math.PI) / 180; // the axis leans over, as the Earth's does
-const TIP = (12 * Math.PI) / 180; // and the north pole tips a little towards us
-const SUN = (() => {
-  // the sun sits off to the left, a touch above and slightly in front, so about half the globe is in shadow
-  const v = [-0.9, 0.3, 0.3];
-  const l = Math.hypot(...v);
-  return v.map((x) => x / l);
-})();
+// the Earth's axis and the sun for today's date (see sky/orbit.ts); the sun is off to the left, so about half the
+// globe is in shadow
+const POSE = skyPose(new Date());
+const SUN = POSE.sun;
 // the ship is lit more from the front than the globes, so its side facing us reads clearly
 const SHIP_SUN = (() => {
   const v = [-0.45, 0.55, 0.7];
@@ -61,39 +59,55 @@ const PALETTES = {
     moon: steps([40, 40, 44], [236, 230, 214]),
     land: steps([40, 40, 34], [214, 204, 160]),
     sea: steps([24, 32, 56], [110, 150, 230]),
-    hull: steps([36, 40, 50], [196, 204, 220]),
+    hull: steps([38, 40, 44], [190, 194, 202]),
     nightSea: "rgb(34,44,70)",
     nightLand: "rgb(70,68,56)",
+    // how much more ink the sea and the night side get: none on the dark page, where faint is dark
+    weight: 400,
+    landLift: 0,
+    seaLift: 0,
+    nightSeaGlyph: 1,
+    nightLandGlyph: 3,
     nightMoon: "rgb(44,46,54)",
     city: "#f0b45a",
+    cityGlyphs: [3, 1], // a bigger and a smaller light
     window: "#f0b45a",
-    engine: steps([30, 60, 80], [150, 230, 255]),
+    engine: steps([30, 80, 50], [150, 255, 160]),
     star: "#8a93a8",
   },
   light: {
     moon: steps([214, 208, 194], [52, 50, 48]),
-    land: steps([214, 206, 180], [70, 86, 44]),
-    sea: steps([200, 208, 222], [36, 74, 160]),
-    hull: steps([214, 210, 200], [40, 44, 58]),
-    nightSea: "rgb(222,216,203)",
-    nightLand: "rgb(204,197,176)",
+    land: steps([120, 176, 70], [24, 120, 44]),
+    sea: steps([96, 150, 230], [14, 84, 210]),
+    hull: steps([214, 211, 204], [44, 46, 52]),
+    nightSea: "rgb(18,34,112)",
+    nightLand: "rgb(30,72,38)",
+    // on the light page faint means pale, so the sea and the night side need heavier glyphs to show up
+    weight: 700,
+    landLift: 3,
+    seaLift: 5,
+    nightSeaGlyph: 11,
+    nightLandGlyph: 10,
     nightMoon: "rgb(218,212,200)",
-    city: "#c47a14",
+    city: "#ffc23d",
+    cityGlyphs: [10, 8],
     window: "#c47a14",
-    engine: steps([200, 220, 228], [10, 120, 175]),
+    engine: steps([200, 224, 206], [10, 140, 50]),
     star: "#b9b2a2",
   },
 };
 
 /**
- * Everything about a cell that does not change as a globe turns: where it falls on the sphere, its latitude,
- * and how much sunlight it gets (the sun stays put while the globe turns underneath it).
+ * Everything about a cell that does not change as a globe turns: where it falls on the sphere and how much sunlight
+ * it gets (the sun stays put while the globe turns underneath it). Which latitude and longitude it shows is worked
+ * out each frame from the globe's orientation.
  */
 function geometry(cols: number, rows: number, aspect: number) {
   const n = cols * rows;
   const inside = new Uint8Array(n);
-  const lat = new Float32Array(n); // 0 at the north pole, 1 at the south
-  const lon = new Float32Array(n); // longitude as a fraction of a turn, before rotation
+  const nx = new Float32Array(n); // where the cell falls on the unit sphere facing us, in screen coordinates
+  const ny = new Float32Array(n);
+  const nz = new Float32Array(n);
   const light = new Float32Array(n); // 0 in shadow, 1 in full sun
   const night = new Float32Array(n); // 1 deep on the night side, 0 in daylight
   const sx = new Float32Array(n); // the cell's position on screen, in globe radii, for the ship
@@ -102,7 +116,6 @@ function geometry(cols: number, rows: number, aspect: number) {
   const cx = cols / 2;
   const cy = rows / 2;
   const radius = cols * 0.42;
-  const [ct, st, cp, sp] = [Math.cos(TILT), Math.sin(TILT), Math.cos(TIP), Math.sin(TIP)];
   for (let i = 0; i < n; i++) {
     const x = ((i % cols) + 0.5 - cx) / radius;
     const y = (-(((i / cols) | 0) + 0.5 - cy) * aspect) / radius;
@@ -114,34 +127,67 @@ function geometry(cols: number, rows: number, aspect: number) {
       continue;
     }
     const z = Math.sqrt(1 - r2);
-    // undo the tilt (around the view axis) and the tip (around the horizontal axis) to get the globe's own frame
-    const x1 = x * ct + y * st;
-    const y1 = -x * st + y * ct;
-    const gy = y1 * cp - z * sp;
-    const gz = y1 * sp + z * cp;
     inside[i] = 1;
-    lat[i] = Math.min(0.9999, (Math.PI / 2 - Math.asin(Math.max(-1, Math.min(1, gy)))) / Math.PI);
-    lon[i] = Math.atan2(x1, gz) / (2 * Math.PI) + 0.5;
+    nx[i] = x;
+    ny[i] = y;
+    nz[i] = z;
     const d = x * SUN[0] + y * SUN[1] + z * SUN[2];
     // a soft line between day and night, and a little darkening towards the edge of the disc
     light[i] = smooth(-0.08, 0.3, d) * (0.55 + 0.45 * Math.max(0, d)) * (0.75 + 0.25 * z);
     night[i] = smooth(0.0, -0.25, d);
   }
-  return { inside, lat, lon, light, night, sx, sy, stars };
+  return { inside, nx, ny, nz, light, night, sx, sy, stars };
 }
+
+/**
+ * A globe's orientation is a 3×3 rotation (row-major) from screen coordinates to the globe's own: x right, y up,
+ * z towards us on screen; in the globe's own frame y is the axis through the poles.
+ */
+type Mat = Float32Array;
+const mul = (a: ArrayLike<number>, b: ArrayLike<number>, out: Mat) => {
+  const r = new Float32Array(9);
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 3; j++) r[i * 3 + j] = a[i * 3] * b[j] + a[i * 3 + 1] * b[3 + j] + a[i * 3 + 2] * b[6 + j];
+  }
+  out.set(r);
+};
+const rotX = (a: number) => [1, 0, 0, 0, Math.cos(a), -Math.sin(a), 0, Math.sin(a), Math.cos(a)];
+const rotY = (a: number) => [Math.cos(a), 0, Math.sin(a), 0, 1, 0, -Math.sin(a), 0, Math.cos(a)];
+/** Keeps the matrix a pure rotation after many small turns. */
+const tidy = (o: Mat) => {
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < i; j++) {
+      const d = o[i * 3] * o[j * 3] + o[i * 3 + 1] * o[j * 3 + 1] + o[i * 3 + 2] * o[j * 3 + 2];
+      for (let k = 0; k < 3; k++) o[i * 3 + k] -= d * o[j * 3 + k];
+    }
+    const l = Math.hypot(o[i * 3], o[i * 3 + 1], o[i * 3 + 2]) || 1;
+    for (let k = 0; k < 3; k++) o[i * 3 + k] /= l;
+  }
+};
+/** The starting pose: the axis as it really is today, turned so Africa and Europe start in the sunlight. */
+const startPose = (out: Mat) => {
+  out.set(POSE.orient);
+  mul(rotY(2 * Math.PI * 0.1), out, out);
+};
 
 type Picture = "earth" | "moon" | "ship";
 
 export interface Sky {
   stop(): void;
   setTheme(theme: Theme): void;
-  /** Bring the ship in now (or send it away if it is already here). */
+  /** Stop (or carry on) turning; a stopped globe can still be dragged. */
+  setPaused(paused: boolean): void;
+  /** Bring the ship in now (or send it away if it is already here). Does nothing on the light theme. */
   ship(): void;
 }
 
 function start(canvas: HTMLCanvasElement, cols: number, theme: Theme): Sky {
   const ctx = canvas.getContext("2d")!;
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+  let paused = isPaused();
+  // nothing animates by itself if the device asks for reduced motion or the visitor paused it; the canvas then
+  // redraws only when something happens
+  const still = () => reduced.matches || paused;
   let palette = PALETTES[theme];
   let rows = 0;
   let cw = 6;
@@ -154,16 +200,23 @@ function start(canvas: HTMLCanvasElement, cols: number, theme: Theme): Sky {
   let showing: Picture = body();
   let next: Picture | null = null; // fading towards this picture
   let fade = 0; // 0..2: fading out over the first half, in over the second
-  let turn = 0.1; // start with Africa and Europe in the sunlight
-  let spin = 1 / TURN_SECONDS[body()];
-  let drag: { x: number; t: number } | null = null;
+  const orient = new Float32Array(9);
+  startPose(orient);
+  let spin = 1 / TURN_SECONDS[body()]; // turns per second about the globe's own axis
+  let drag: { x: number; y: number; t: number } | null = null;
+  let flickX = 0; // after a drag, how fast it is still turning on screen (radians per second), easing off
+  let flickY = 0;
   let t = 0;
   let shipAt = 0; // when the ship arrived
+  let shipTurnFrom = 0; // when it started to turn: the moment the ship was called, so it is already turning as it fades in
   let shipDue = shipEvery();
   let raf = 0;
   let last = 0;
   const m = new Float32Array(9);
 
+  const setFont = () => {
+    ctx.font = `${palette.weight} ${Math.round(ch * 0.9)}px "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace`;
+  };
   const size = () => {
     cssW = canvas.clientWidth;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -175,7 +228,7 @@ function start(canvas: HTMLCanvasElement, cols: number, theme: Theme): Sky {
     canvas.height = Math.round(cssH * dpr);
     canvas.style.height = `${cssH}px`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.font = `${Math.round(ch * 0.9)}px "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace`;
+    setFont();
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     geo = geometry(cols, rows, ch / cw);
@@ -192,54 +245,55 @@ function start(canvas: HTMLCanvasElement, cols: number, theme: Theme): Sky {
   };
 
   const drawGlobe = (which: "earth" | "moon") => {
-    const { inside, lat, lon, light, night } = geo;
+    const { inside, nx, ny, nz, light, night } = geo;
+    const [o0, o1, o2, o3, o4, o5, o6, o7, o8] = orient;
     const moon = which === "moon" ? moonMap() : null;
     for (let i = 0; i < cols * rows; i++) {
       if (!inside[i]) continue;
-      let u = lon[i] + turn;
-      u -= Math.floor(u);
+      // where on the globe this cell is looking, given how it is turned now
+      const gx = o0 * nx[i] + o1 * ny[i] + o2 * nz[i];
+      const gy = o3 * nx[i] + o4 * ny[i] + o5 * nz[i];
+      const gz = o6 * nx[i] + o7 * ny[i] + o8 * nz[i];
+      const la = Math.min(0.9999, (Math.PI / 2 - Math.asin(Math.max(-1, Math.min(1, gy)))) / Math.PI);
+      const u = Math.atan2(gx, gz) / (2 * Math.PI) + 0.5;
       const l = light[i];
       if (moon) {
         // the square root flattens the lighting a little, so the seas and craters show through it
-        const k = Math.round(Math.min(1, Math.sqrt(l) * moon[((lat[i] * MOON_H) | 0) * MOON_W + ((u * MOON_W) | 0)] * 0.95) * (LEVELS - 1));
+        const k = Math.round(Math.min(1, Math.sqrt(l) * moon[((la * MOON_H) | 0) * MOON_W + ((u * MOON_W) | 0)] * 0.95) * (LEVELS - 1));
         if (k > 1) add(palette.moon[k], i, k);
         else add(palette.nightMoon, i, 1);
         continue;
       }
       const mx = (u * earth.w) | 0;
-      const my = (lat[i] * earth.h) | 0;
+      const my = (la * earth.h) | 0;
       if (isLand(mx, my)) {
         const k = Math.round(l * (LEVELS - 1));
-        if (k > 1) add(palette.land[k], i, k);
+        if (k > 1) add(palette.land[k], i, Math.min(LEVELS - 1, k + palette.landLift));
         // on the night side, a scattering of towns and cities glows through
-        else if (night[i] > 0.4 && hash(my * earth.w + mx) < 0.08) add(palette.city, i, hash(mx + my) < 0.3 ? 3 : 1);
-        else add(palette.nightLand, i, 3);
+        else if (night[i] > 0.4 && hash(((my / 6) | 0) * 1000 + ((mx / 6) | 0)) < 0.06) add(palette.city, i, palette.cityGlyphs[hash(((my / 6) | 0) * 77 + ((mx / 6) | 0)) < 0.3 ? 0 : 1]);
+        else add(palette.nightLand, i, palette.nightLandGlyph);
       } else {
         // the sea is darker than land
         const k = Math.round(l * 0.5 * (LEVELS - 1));
-        if (k > 1) add(palette.sea[Math.min(LEVELS - 1, k + 3)], i, k);
-        else add(palette.nightSea, i, 1);
+        if (k > 1) add(palette.sea[Math.min(LEVELS - 1, k + 3 + palette.seaLift)], i, Math.min(LEVELS - 1, k + palette.seaLift));
+        else add(palette.nightSea, i, palette.nightSeaGlyph);
       }
     }
   };
 
   const drawShip = () => {
     const { sx, sy } = geo;
-    shipMatrix((t - shipAt) * 0.12, m);
+    shipMatrix(((t - shipTurnFrom) * Math.PI * 2) / TURN_SECONDS.moon, m);
     for (let i = 0; i < cols * rows; i++) {
       // skip cells the station can never reach
-      if (Math.abs(sy[i]) > 1.2 || Math.abs(sx[i]) > 1.05) continue;
+      if (Math.abs(sy[i]) > 1.05 || Math.abs(sx[i]) > 1.05) continue;
       const hit = cast(sx[i], sy[i], m, SHIP_SUN);
       if (hit.kind === 0) continue;
       if (hit.kind === 1) {
         const k = Math.max(1, Math.round(hit.light * (LEVELS - 1)));
         add(palette.hull[k], i, k);
       } else if (hit.kind === 2) add(palette.window, i, 4);
-      else if (hit.kind === 3) add(palette.engine[LEVELS - 1], i, LEVELS - 1 - ((t * 6 + i) % 2 | 0));
-      else {
-        const k = Math.max(1, Math.round(hit.light * 5 * (0.8 + 0.2 * Math.sin(t * 9))));
-        add(palette.engine[k + 2], i, k);
-      }
+      else add(palette.engine[LEVELS - 1], i, LEVELS - 1 - ((t * 6 + i) % 2 | 0));
     }
   };
 
@@ -271,7 +325,8 @@ function start(canvas: HTMLCanvasElement, cols: number, theme: Theme): Sky {
     if (pic === (next ?? showing)) return;
     next = pic;
     fade = 0;
-    if (reduced.matches) finishFade();
+    if (pic === "ship") shipTurnFrom = t;
+    if (still()) finishFade();
   };
   const finishFade = () => {
     if (!next) return;
@@ -279,7 +334,7 @@ function start(canvas: HTMLCanvasElement, cols: number, theme: Theme): Sky {
     next = null;
     if (showing === "ship") shipAt = t;
     else spin = 1 / TURN_SECONDS[body()];
-    if (reduced.matches) draw();
+    if (still()) draw();
   };
 
   const frame = (now: number) => {
@@ -295,32 +350,61 @@ function start(canvas: HTMLCanvasElement, cols: number, theme: Theme): Sky {
         switchTo(body());
         shipDue = t + shipEvery();
       }
-      if (showing !== "ship" && !next && t > shipDue) switchTo("ship");
-      if (!drag) spin += (1 / TURN_SECONDS[body()] - spin) * Math.min(1, dt * 1.2);
-      turn += spin * dt;
+      if (showing !== "ship" && !next && t > shipDue && theme === "dark") switchTo("ship");
+      if (!drag) {
+        // it turns about its own axis at its own pace, plus whatever is left of the last flick, which dies away
+        turnBy(0, 0, 2 * Math.PI * spin * dt);
+        const keep = Math.exp(-dt * 2.2);
+        flickX *= keep;
+        flickY *= keep;
+        if (Math.abs(flickX) + Math.abs(flickY) > 0.001) turnBy(flickX * dt, flickY * dt, 0);
+      }
       draw();
     }
     raf = requestAnimationFrame(frame);
   };
 
-  // drag sideways to spin the globe; let go and it eases back to its own pace
+  /**
+   * Turns the globe: `right` and `down` are angles on screen (the surface follows the finger), `around` is a turn
+   * about the globe's own axis.
+   */
+  const turnBy = (right: number, down: number, around: number) => {
+    if (around) mul(rotY(-around), orient, orient);
+    if (right || down) mul(orient, mul2(rotY(-right), rotX(-down)), orient);
+    tidy(orient);
+  };
+  const mul2 = (a: number[], b: number[]) => {
+    const r = new Float32Array(9);
+    mul(a, b, r);
+    return r;
+  };
+
+  // drag the globe any way, like a ball; let go and it keeps coasting for a moment, then settles to its own spin
   const onDown = (e: PointerEvent) => {
-    drag = { x: e.clientX, t: performance.now() };
+    drag = { x: e.clientX, y: e.clientY, t: performance.now() };
+    flickX = flickY = 0;
     canvas.setPointerCapture(e.pointerId);
   };
   const onMove = (e: PointerEvent) => {
     if (!drag) return;
     const now = performance.now();
-    const dx = (e.clientX - drag.x) / cssW;
-    turn -= dx * 0.5;
-    spin = Math.max(-1.5, Math.min(1.5, (-dx * 0.5) / Math.max(0.016, (now - drag.t) / 1000)));
-    drag = { x: e.clientX, t: now };
-    if (reduced.matches) draw();
+    const right = ((e.clientX - drag.x) / cssW) * Math.PI;
+    const down = ((e.clientY - drag.y) / cssW) * Math.PI;
+    const secs = Math.max(0.016, (now - drag.t) / 1000);
+    turnBy(right, down, 0);
+    flickX = Math.max(-4, Math.min(4, right / secs));
+    flickY = Math.max(-4, Math.min(4, down / secs));
+    drag = { x: e.clientX, y: e.clientY, t: now };
+    if (still()) draw();
   };
-  const onUp = () => (drag = null);
+  const onUp = () => {
+    // a pause before letting go means no flick
+    if (drag && performance.now() - drag.t > 80) flickX = flickY = 0;
+    drag = null;
+  };
   const onVisibility = () => {
     cancelAnimationFrame(raf);
-    if (!document.hidden && !reduced.matches) {
+    if (!document.hidden && !still()) {
       last = performance.now();
       raf = requestAnimationFrame(frame);
     }
@@ -345,11 +429,11 @@ function start(canvas: HTMLCanvasElement, cols: number, theme: Theme): Sky {
   canvas.addEventListener("pointercancel", onUp);
   document.addEventListener("visibilitychange", onVisibility);
 
-  if (reduced.matches) draw();
+  if (still()) draw();
   else raf = requestAnimationFrame(frame);
 
   let stopped = false;
-  document.fonts?.load('400 14px "JetBrains Mono"').then(() => {
+  Promise.all([document.fonts?.load('400 14px "JetBrains Mono"'), document.fonts?.load('700 14px "JetBrains Mono"')]).then(() => {
     if (stopped) return;
     size();
     draw();
@@ -370,10 +454,32 @@ function start(canvas: HTMLCanvasElement, cols: number, theme: Theme): Sky {
     setTheme(next: Theme) {
       theme = next;
       palette = PALETTES[theme];
-      if (showing !== "ship") switchTo(body());
-      else if (reduced.matches) draw();
+      setFont();
+      // the station only visits on the dark theme: on the light one it is sent away
+      if (showing !== "ship" || theme === "light") switchTo(body());
+      // during the theme change there is nothing to fade, so swap pictures at once
+      if (document.documentElement.hasAttribute("data-theme-cover")) {
+        finishFade();
+        draw(); // the page is being photographed for the transition, so do not wait for the next frame
+      }
+      if (still()) draw();
+      if (theme === "dark") shipDue = Math.max(shipDue, t + 60);
+    },
+    setPaused(next: boolean) {
+      if (next === paused) return;
+      paused = next;
+      cancelAnimationFrame(raf);
+      if (paused) {
+        // stop where it is, but let a fade in progress finish so it is not left half-drawn
+        finishFade();
+        draw();
+      } else if (!reduced.matches && !document.hidden) {
+        last = performance.now();
+        raf = requestAnimationFrame(frame);
+      }
     },
     ship() {
+      if (theme === "light") return;
       if ((next ?? showing) === "ship") {
         switchTo(body());
       } else switchTo("ship");
@@ -389,11 +495,12 @@ const LABELS: Record<Theme, string> = {
   dark: "The Moon drawn in characters, slowly turning, half of it in shadow",
 };
 
-/** The Earth on the light theme, the Moon on the dark one, and now and then a visitor. Double-click to call it. */
+/** The Earth on the light theme, the Moon on the dark one, and now and then, on the dark theme only, a visitor. Double-click to call it. */
 export function SkyArt() {
   const ref = useRef<HTMLCanvasElement>(null);
   const sky = useRef<Sky | null>(null);
   const theme = useTheme();
+  const paused = useMotionPaused();
   const [narrow, setNarrow] = useState(() => typeof matchMedia !== "undefined" && matchMedia(NARROW).matches);
 
   useEffect(() => {
@@ -415,6 +522,10 @@ export function SkyArt() {
   useEffect(() => {
     if (theme) sky.current?.setTheme(theme);
   }, [theme]);
+
+  useEffect(() => {
+    sky.current?.setPaused(paused);
+  }, [paused]);
 
   return (
     <div className="pagoda-wrap earth-wrap">

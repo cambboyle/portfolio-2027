@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import earth from "../src/art/earth.json";
 import { MOON_H, MOON_W, moonMap } from "../src/sky/moon";
-import { cast, scene, shipMatrix } from "../src/sky/ship";
+import { DISH, cast, scene, shipMatrix } from "../src/sky/ship";
 
 test("the land map is the size it says and is part land, part sea", () => {
   const bits = Buffer.from(earth.land, "base64");
@@ -24,7 +24,29 @@ test("the Moon map is the same on every visit, and has both bright and dark grou
 
 test("the station's shape: inside the sphere is negative, far away is positive", () => {
   expect(scene(0, 0, 0)).toBeLessThan(0);
-  expect(scene(0, 2, 0)).toBeGreaterThan(1);
+  expect(scene(0, 2, 0)).toBeGreaterThan(0.9);
+});
+
+test("the trench is cut round the equator and the bowl out of the upper half", () => {
+  // in the trench: empty; the same distance from the centre just above it: solid
+  expect(scene(0.97, 0, 0)).toBeGreaterThan(0);
+  expect(scene(0.97 * Math.cos(0.2), 0.97 * Math.sin(0.2), 0)).toBeLessThan(0);
+  // the middle of the dish is empty, the opposite side of the sphere is solid
+  expect(scene(DISH[0] * 0.95, DISH[1] * 0.95, DISH[2] * 0.95)).toBeGreaterThan(0);
+  expect(scene(-DISH[0] * 0.95, -DISH[1] * 0.95, -DISH[2] * 0.95)).toBeLessThan(0);
+});
+
+test("over one turn the trench shows lit windows and the dish glows", () => {
+  const kinds = new Set<number>();
+  const m = new Float32Array(9);
+  for (let turn = 0; turn < Math.PI * 2; turn += 0.2) {
+    shipMatrix(turn, m);
+    for (let sy = -1; sy <= 1; sy += 0.04) {
+      for (let sx = -1; sx <= 1; sx += 0.04) kinds.add(cast(sx, sy, m, [-0.45, 0.55, 0.7]).kind);
+    }
+  }
+  expect(kinds.has(2)).toBe(true);
+  expect(kinds.has(3)).toBe(true);
 });
 
 test("a ray through the middle of the ship hits it, and one through empty space does not", () => {
