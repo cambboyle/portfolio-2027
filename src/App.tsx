@@ -7,7 +7,11 @@ import { About } from "./pages/About";
 import { NotFound } from "./pages/NotFound";
 import { pageMeta } from "./meta";
 import { changeTheme } from "./themeTransition";
-import { PauseButton } from "./PauseButton";
+import { Comet } from "./Comet";
+import { Dock } from "./Dock";
+import { Footer } from "./Footer";
+import { Idle } from "./Idle";
+import { Trail } from "./Trail";
 import { useTheme } from "./theme";
 
 function ThemeToggle() {
@@ -77,7 +81,11 @@ export function App({ initialPath }: { initialPath?: string }) {
       <a className="skip" href="#main">Skip to content</a>
       <Nav path={path} />
       {page}
-      {path === "/" && <PauseButton />}
+      <Footer />
+      <Dock />
+      <Trail />
+      <Comet />
+      <Idle active={path === "/"} />
     </>
   );
 }

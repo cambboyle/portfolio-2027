@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import earth from "./art/earth.json";
 import { MOON_H, MOON_W, moonMap } from "./sky/moon";
 import { isPaused, useMotionPaused } from "./motion";
-import { skyPose } from "./sky/orbit";
+import { type Body, getBodyOverride, nextBody, setBodyOverride, setIssTracking, useBodyOverride, useIssTracking } from "./sky/control";
+import { cityGrid, cityLight } from "./sky/cities";
+import { ISS_GIVE_UP_MS, ISS_POLL_MS, type IssFix, cellAt, fetchIss, issToScreen, place } from "./sky/iss";
+import { moonPhase } from "./sky/moonPhase";
+import { fixedPose, skyPose } from "./sky/orbit";
+import { MARS_H, MARS_W, isPolarCap, marsMap, saturnBand } from "./sky/planets";
+import { ringHit } from "./sky/rings";
 import { cast, shipMatrix } from "./sky/ship";
 import { type Theme, readTheme, useTheme } from "./theme";
 
@@ -12,13 +18,25 @@ const LEVELS = RAMP.length;
 // globe is in shadow
 const POSE = skyPose(new Date());
 const SUN = POSE.sun;
+// the Moon is lit from wherever the sun really is relative to it today: new moon the sun is behind it, first quarter
+// off to the right (as seen from the northern hemisphere), full moon in front, last quarter off to the left
+const PHASE = moonPhase(new Date());
+const MOON_SUN = (() => {
+  const v = [Math.sin(PHASE.angle), 0.12, -Math.cos(PHASE.angle)];
+  const l = Math.hypot(...v);
+  return v.map((x) => x / l);
+})();
 // the ship is lit more from the front than the globes, so its side facing us reads clearly
 const SHIP_SUN = (() => {
   const v = [-0.45, 0.55, 0.7];
   const l = Math.hypot(...v);
   return v.map((x) => x / l);
 })();
-const TURN_SECONDS = { earth: 48, moon: 70 };
+const TURN_SECONDS: Record<Body, number> = { earth: 48, moon: 70, mars: 50, saturn: 30 };
+// the tilt of each planet's axis, and how far it is tipped towards us: Saturn more, so its rings open out
+const MARS_POSE = new Float32Array(fixedPose((25.2 * Math.PI) / 180, 0.3));
+const SATURN_POSE = new Float32Array(fixedPose((26.7 * Math.PI) / 180, 0.5));
+const SATURN_SIZE = 0.46; // Saturn is drawn smaller, to leave room for its rings
 const FADE = 1.2; // seconds to fade one picture out and the next in
 const SHIP_STAYS = 16; // seconds the ship is on screen
 const shipEvery = () => 180 + Math.random() * 120; // it turns up every three to five minutes
@@ -69,6 +87,13 @@ const PALETTES = {
     nightSeaGlyph: 1,
     nightLandGlyph: 3,
     nightMoon: "rgb(44,46,54)",
+    iss: "#ff7a59",
+    mars: steps([48, 26, 20], [238, 148, 92]),
+    saturn: steps([54, 46, 34], [238, 214, 168]),
+    ring: steps([60, 56, 50], [224, 204, 170]),
+    cap: "#eeeae0",
+    nightMars: "rgb(40,26,24)",
+    nightSaturn: "rgb(44,38,30)",
     city: "#f0b45a",
     cityGlyphs: [3, 1], // a bigger and a smaller light
     window: "#f0b45a",
@@ -89,6 +114,13 @@ const PALETTES = {
     nightSeaGlyph: 11,
     nightLandGlyph: 10,
     nightMoon: "rgb(218,212,200)",
+    iss: "#d1301a",
+    mars: steps([226, 190, 160], [124, 44, 16]),
+    saturn: steps([224, 206, 176], [112, 82, 36]),
+    ring: steps([214, 204, 186], [92, 72, 42]),
+    cap: "rgb(150,176,200)",
+    nightMars: "rgb(96,46,28)",
+    nightSaturn: "rgb(96,76,44)",
     city: "#ffc23d",
     cityGlyphs: [10, 8],
     window: "#c47a14",
@@ -102,7 +134,7 @@ const PALETTES = {
  * it gets (the sun stays put while the globe turns underneath it). Which latitude and longitude it shows is worked
  * out each frame from the globe's orientation.
  */
-function geometry(cols: number, rows: number, aspect: number) {
+function geometry(cols: number, rows: number, aspect: number, sun: number[] = SUN, scale = 1) {
   const n = cols * rows;
   const inside = new Uint8Array(n);
   const nx = new Float32Array(n); // where the cell falls on the unit sphere facing us, in screen coordinates
@@ -115,7 +147,7 @@ function geometry(cols: number, rows: number, aspect: number) {
   const stars: number[] = [];
   const cx = cols / 2;
   const cy = rows / 2;
-  const radius = cols * 0.42;
+  const radius = cols * 0.42 * scale;
   for (let i = 0; i < n; i++) {
     const x = ((i % cols) + 0.5 - cx) / radius;
     const y = (-(((i / cols) | 0) + 0.5 - cy) * aspect) / radius;
@@ -131,7 +163,7 @@ function geometry(cols: number, rows: number, aspect: number) {
     nx[i] = x;
     ny[i] = y;
     nz[i] = z;
-    const d = x * SUN[0] + y * SUN[1] + z * SUN[2];
+    const d = x * sun[0] + y * sun[1] + z * sun[2];
     // a soft line between day and night, and a little darkening towards the edge of the disc
     light[i] = smooth(-0.08, 0.3, d) * (0.55 + 0.45 * Math.max(0, d)) * (0.75 + 0.25 * z);
     night[i] = smooth(0.0, -0.25, d);
@@ -170,18 +202,22 @@ const startPose = (out: Mat) => {
   mul(rotY(2 * Math.PI * 0.1), out, out);
 };
 
-type Picture = "earth" | "moon" | "ship";
+type Picture = Body | "ship";
 
 export interface Sky {
   stop(): void;
   setTheme(theme: Theme): void;
   /** Stop (or carry on) turning; a stopped globe can still be dragged. */
   setPaused(paused: boolean): void;
+  /** Show this body instead of the theme's own (null to go back to it). */
+  setBody(body: Body | null): void;
+  /** The recent positions of the space station, newest last, to show on the Earth (empty to hide it). */
+  setIss(fixes: IssFix[]): void;
   /** Bring the ship in now (or send it away if it is already here). Does nothing on the light theme. */
   ship(): void;
 }
 
-function start(canvas: HTMLCanvasElement, cols: number, theme: Theme): Sky {
+function start(canvas: HTMLCanvasElement, cols: number, theme: Theme, picked: Body | null): Sky {
   const ctx = canvas.getContext("2d")!;
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
   let paused = isPaused();
@@ -195,8 +231,11 @@ function start(canvas: HTMLCanvasElement, cols: number, theme: Theme): Sky {
   let cssW = 0;
   let cssH = 0;
   let geo = geometry(1, 1, 1.8);
+  let moonGeo = geo; // the same sphere lit by the Moon's phase
+  let saturnGeo = geo; // a smaller sphere, with room round it for the rings
   let glyph = new Uint8Array(0);
-  const body = (): "earth" | "moon" => (theme === "light" ? "earth" : "moon");
+  let override = picked; // a body picked by hand, until the theme changes
+  const body = (): Body => override ?? (theme === "light" ? "earth" : "moon");
   let showing: Picture = body();
   let next: Picture | null = null; // fading towards this picture
   let fade = 0; // 0..2: fading out over the first half, in over the second
@@ -232,24 +271,74 @@ function start(canvas: HTMLCanvasElement, cols: number, theme: Theme): Sky {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     geo = geometry(cols, rows, ch / cw);
+    moonGeo = geometry(cols, rows, ch / cw, MOON_SUN);
+    saturnGeo = geometry(cols, rows, ch / cw, SUN, SATURN_SIZE);
+    taken = new Uint8Array(cols * rows);
     glyph = new Uint8Array(cols * rows);
   };
 
   // cells grouped by colour each frame, so the canvas changes fill colour a few dozen times rather than thousands
   const buckets = new Map<string, number[]>();
+  // which cells already have something drawn in them this frame, so the stars do not show through it
+  let iss: IssFix[] = [];
+  let labels: { text: string; x: number; y: number; right: boolean }[] = [];
+  let taken = new Uint8Array(0);
   const add = (colour: string, i: number, g: number) => {
     let list = buckets.get(colour);
     if (!list) buckets.set(colour, (list = []));
     list.push(i);
     glyph[i] = g;
+    taken[i] = 1;
   };
 
-  const drawGlobe = (which: "earth" | "moon") => {
-    const { inside, nx, ny, nz, light, night } = geo;
+
+  // the lights of the world's cities; the small ones twinkle on and off slowly, the big ones stay lit
+  const cities = cityGrid();
+  const lit = (u: number, la: number, i: number) => {
+    const c = cityLight(cities, u, la);
+    return c >= 2 || (c === 1 && hash(i * 3 + Math.floor(t * 0.7)) > 0.25);
+  };
+
+  const drawGlobe = (which: Body) => {
+    const g = which === "moon" ? moonGeo : which === "saturn" ? saturnGeo : geo;
+    const { inside, nx, ny, nz, light, night } = g;
     const [o0, o1, o2, o3, o4, o5, o6, o7, o8] = orient;
     const moon = which === "moon" ? moonMap() : null;
+    const marsBrightness = which === "mars" ? marsMap() : null;
+    const lift = palette.landLift;
+    if (which === "saturn") {
+      // the rings first: where one is seen (beside the planet, or in front of it) it takes the cell
+      const north = [o3, o4, o5];
+      for (let i = 0; i < cols * rows; i++) {
+        const hit = ringHit(g.sx[i], g.sy[i], north, SUN);
+        if (!hit || !hit.seen || hit.brightness < 0.06) continue;
+        const k = Math.max(1, Math.round(Math.min(1, hit.brightness) * (LEVELS - 1)));
+        add(palette.ring[k], i, Math.min(LEVELS - 1, k + lift));
+      }
+    }
+    if (which === "earth" && iss.length) {
+      // the space station and the path it has just taken: marked first, so the globe leaves those cells alone
+      const aspect = ch / cw;
+      const last = iss.length - 1;
+      iss.forEach((fix, n) => {
+        const p = issToScreen(fix.lat, fix.lon, orient);
+        if (p.z <= 0) return; // on the far side
+        const cell = cellAt(p.x, p.y, cols, rows, aspect);
+        if (cell < 0 || (taken[cell] && n < last)) return;
+        if (n < last) return void add(palette.iss, cell, 1);
+        add(palette.iss, cell, Math.floor(t * 2) % 2 ? 11 : 8);
+        const col = cell % cols;
+        const fast = String(Math.round(fix.velocity)).replace(/\B(?=(\d{3})+$)/g, ",");
+        labels.push({
+          text: `ISS ${Math.round(fix.altitude)} km · ${fast} km/h`,
+          x: col * cw + (col > cols * 0.62 ? -cw * 0.5 : cw * 1.5),
+          y: ((cell / cols) | 0) * ch + ch / 2,
+          right: col > cols * 0.62,
+        });
+      });
+    }
     for (let i = 0; i < cols * rows; i++) {
-      if (!inside[i]) continue;
+      if (!inside[i] || taken[i]) continue;
       // where on the globe this cell is looking, given how it is turned now
       const gx = o0 * nx[i] + o1 * ny[i] + o2 * nz[i];
       const gy = o3 * nx[i] + o4 * ny[i] + o5 * nz[i];
@@ -264,13 +353,31 @@ function start(canvas: HTMLCanvasElement, cols: number, theme: Theme): Sky {
         else add(palette.nightMoon, i, 1);
         continue;
       }
+      if (marsBrightness) {
+        if (isPolarCap(la, hash(Math.floor(u * 64)))) {
+          const k = Math.round(Math.min(1, Math.sqrt(l)) * (LEVELS - 1));
+          if (k > 1) add(palette.cap, i, Math.min(LEVELS - 1, k + lift));
+          else add(palette.nightMars, i, palette.nightLandGlyph);
+          continue;
+        }
+        const k = Math.round(Math.min(1, Math.sqrt(l) * marsBrightness[((la * MARS_H) | 0) * MARS_W + ((u * MARS_W) | 0)] * 1.05) * (LEVELS - 1));
+        if (k > 1) add(palette.mars[k], i, Math.min(LEVELS - 1, k + lift));
+        else add(palette.nightMars, i, palette.nightLandGlyph);
+        continue;
+      }
+      if (which === "saturn") {
+        const k = Math.round(Math.min(1, Math.sqrt(l) * saturnBand(la, u)) * (LEVELS - 1));
+        if (k > 1) add(palette.saturn[k], i, Math.min(LEVELS - 1, k + lift));
+        else add(palette.nightSaturn, i, palette.nightLandGlyph);
+        continue;
+      }
       const mx = (u * earth.w) | 0;
       const my = (la * earth.h) | 0;
       if (isLand(mx, my)) {
         const k = Math.round(l * (LEVELS - 1));
         if (k > 1) add(palette.land[k], i, Math.min(LEVELS - 1, k + palette.landLift));
         // on the night side, a scattering of towns and cities glows through
-        else if (night[i] > 0.4 && hash(((my / 6) | 0) * 1000 + ((mx / 6) | 0)) < 0.06) add(palette.city, i, palette.cityGlyphs[hash(((my / 6) | 0) * 77 + ((mx / 6) | 0)) < 0.3 ? 0 : 1]);
+        else if (night[i] > 0.4 && lit(u, la, i)) add(palette.city, i, palette.cityGlyphs[cityLight(cities, u, la) >= 2 ? 0 : 1]);
         else add(palette.nightLand, i, palette.nightLandGlyph);
       } else {
         // the sea is darker than land
@@ -297,19 +404,51 @@ function start(canvas: HTMLCanvasElement, cols: number, theme: Theme): Sky {
     }
   };
 
+  /** Each planet has its own tilt, so when the picture changes to or from one the globe is turned to suit it. */
+  let posed: Picture = showing;
+  const pose = (pic: Picture) => {
+    if (pic === "ship" || pic === posed) return;
+    if (pic === "mars") orient.set(MARS_POSE);
+    else if (pic === "saturn") orient.set(SATURN_POSE);
+    else if (posed === "mars" || posed === "saturn") startPose(orient);
+    posed = pic;
+  };
+  pose(showing);
+
   const draw = () => {
     ctx.clearRect(0, 0, cssW, cssH);
     for (const list of buckets.values()) list.length = 0;
-    for (const i of geo.stars) {
+    taken.fill(0);
+    labels = [];
+    const pic = next && fade >= 1 ? next : showing;
+    pose(pic);
+    if (pic === "ship") drawShip();
+    else drawGlobe(pic);
+    // the stars, wherever nothing else has been drawn
+    for (const i of (pic === "saturn" ? saturnGeo : geo).stars) {
+      if (taken[i]) continue;
       const tw = Math.sin(t * 0.8 + hash(i) * 40);
       if (tw > -0.3) add(palette.star, i, tw > 0.7 ? 3 : 1);
     }
-    const pic = next && fade >= 1 ? next : showing;
-    if (pic === "ship") drawShip();
-    else drawGlobe(pic);
     for (const [colour, list] of buckets) {
       ctx.fillStyle = colour;
       for (const i of list) ctx.fillText(RAMP[glyph[i]], (i % cols) * cw + cw / 2, ((i / cols) | 0) * ch + ch / 2);
+    }
+    if (labels.length) {
+      // small labels in the page's colours, with a halo of the background so they read over the globe
+      const bg = getComputedStyle(canvas).getPropertyValue("--bg") || (theme === "light" ? "#f4efe4" : "#0b0d12");
+      ctx.font = `${palette.weight} ${Math.round(ch * 0.62)}px "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace`;
+      ctx.lineWidth = 4;
+      ctx.lineJoin = "round";
+      for (const l of labels) {
+        ctx.textAlign = l.right ? "right" : "left";
+        ctx.strokeStyle = bg;
+        ctx.strokeText(l.text, l.x, l.y);
+        ctx.fillStyle = palette.iss;
+        ctx.fillText(l.text, l.x, l.y);
+      }
+      setFont();
+      ctx.textAlign = "center";
     }
     // fading between pictures: lay the background colour over the top, thickest at the swap
     if (next) {
@@ -380,12 +519,21 @@ function start(canvas: HTMLCanvasElement, cols: number, theme: Theme): Sky {
   };
 
   // drag the globe any way, like a ball; let go and it keeps coasting for a moment, then settles to its own spin
+  // holding still on the globe for most of a second moves on to the next body (the touch-screen way in)
+  let hold: { x: number; y: number; timer: number } | null = null;
+  const endHold = () => {
+    if (hold) clearTimeout(hold.timer);
+    hold = null;
+  };
   const onDown = (e: PointerEvent) => {
+    endHold();
+    hold = { x: e.clientX, y: e.clientY, timer: window.setTimeout(() => (setBodyOverride(nextBody(body())), (hold = null)), 800) };
     drag = { x: e.clientX, y: e.clientY, t: performance.now() };
     flickX = flickY = 0;
     canvas.setPointerCapture(e.pointerId);
   };
   const onMove = (e: PointerEvent) => {
+    if (hold && Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > 6) endHold();
     if (!drag) return;
     const now = performance.now();
     const right = ((e.clientX - drag.x) / cssW) * Math.PI;
@@ -398,6 +546,7 @@ function start(canvas: HTMLCanvasElement, cols: number, theme: Theme): Sky {
     if (still()) draw();
   };
   const onUp = () => {
+    endHold();
     // a pause before letting go means no flick
     if (drag && performance.now() - drag.t > 80) flickX = flickY = 0;
     drag = null;
@@ -442,6 +591,7 @@ function start(canvas: HTMLCanvasElement, cols: number, theme: Theme): Sky {
   return {
     stop() {
       stopped = true;
+      endHold();
       cancelAnimationFrame(raf);
       cancelAnimationFrame(pending);
       ro.disconnect();
@@ -451,7 +601,16 @@ function start(canvas: HTMLCanvasElement, cols: number, theme: Theme): Sky {
       canvas.removeEventListener("pointercancel", onUp);
       document.removeEventListener("visibilitychange", onVisibility);
     },
+    setIss(fixes: IssFix[]) {
+      iss = fixes;
+      if (still()) draw();
+    },
+    setBody(next: Body | null) {
+      override = next;
+      if (showing !== "ship") switchTo(body());
+    },
     setTheme(next: Theme) {
+      if (next !== theme) override = null; // a new theme goes back to its own body
       theme = next;
       palette = PALETTES[theme];
       setFont();
@@ -490,9 +649,17 @@ function start(canvas: HTMLCanvasElement, cols: number, theme: Theme): Sky {
 
 const NARROW = "(max-width: 600px)";
 
+/** A line of facts for each body, shown for a few seconds when it is picked by hand. */
+const FACTS: Record<Body, () => string> = {
+  earth: () => "earth · a day is 24 hours · axis tilted 23.4° · 71% ocean",
+  moon: () => `moon · ${PHASE.name} tonight · always shows us the same face`,
+  mars: () => "mars · a day is 24h 37m · axis tilted 25° · a year is 687 days",
+  saturn: () => "saturn · a day is 10h 33m · axis tilted 27° · rings 280,000 km wide and about 10 m thick",
+};
+
 const LABELS: Record<Theme, string> = {
   light: "The Earth drawn in characters, slowly turning, half of it in night",
-  dark: "The Moon drawn in characters, slowly turning, half of it in shadow",
+  dark: "The Moon drawn in characters, slowly turning",
 };
 
 /** The Earth on the light theme, the Moon on the dark one, and now and then, on the dark theme only, a visitor. Double-click to call it. */
@@ -511,7 +678,7 @@ export function SkyArt() {
   }, []);
 
   useEffect(() => {
-    const s = start(ref.current!, narrow ? 64 : 104, readTheme());
+    const s = start(ref.current!, narrow ? 64 : 104, readTheme(), getBodyOverride());
     sky.current = s;
     return () => {
       s.stop();
@@ -519,13 +686,72 @@ export function SkyArt() {
     };
   }, [narrow]);
 
+  // a change of theme (not the first render) puts the globe back to the theme's own body
+  const lastTheme = useRef(theme);
   useEffect(() => {
-    if (theme) sky.current?.setTheme(theme);
+    if (!theme) return;
+    if (lastTheme.current && lastTheme.current !== theme) setBodyOverride(null);
+    lastTheme.current = theme;
+    sky.current?.setTheme(theme);
   }, [theme]);
+
+  // the space station: only while asked for, asking the API every few seconds, and giving up after ten minutes
+  const tracking = useIssTracking();
+  const [issNote, setIssNote] = useState("");
+  useEffect(() => {
+    if (!tracking) {
+      sky.current?.setIss([]);
+      return;
+    }
+    const fixes: IssFix[] = [];
+    const controller = new AbortController();
+    let first = true;
+    const poll = async () => {
+      if (document.hidden) return;
+      const fix = await fetchIss(controller.signal);
+      if (controller.signal.aborted) return;
+      if (!fix) {
+        if (first) {
+          setIssNote("couldn't reach the space station's position (offline?)");
+          setIssTracking(false);
+        }
+        return;
+      }
+      first = false;
+      fixes.push(fix);
+      if (fixes.length > 10) fixes.shift();
+      sky.current?.setIss([...fixes]);
+      setIssNote(`ISS · ${Math.round(fix.altitude)} km up · over ${place(fix.lat, fix.lon)} · drag the globe to find it`);
+    };
+    void poll();
+    const every = setInterval(poll, ISS_POLL_MS);
+    const giveUp = setTimeout(() => setIssTracking(false), ISS_GIVE_UP_MS);
+    return () => {
+      controller.abort();
+      clearInterval(every);
+      clearTimeout(giveUp);
+      sky.current?.setIss([]);
+    };
+  }, [tracking]);
+
+  const picked = useBodyOverride();
+  const [caption, setCaption] = useState("");
+  useEffect(() => {
+    sky.current?.setBody(picked);
+    // a line of facts about the body, for a few seconds
+    setCaption(picked ? FACTS[picked]() : "");
+    if (!picked) return;
+    const id = setTimeout(() => setCaption(""), 7000);
+    return () => clearTimeout(id);
+  }, [picked]);
 
   useEffect(() => {
     sky.current?.setPaused(paused);
   }, [paused]);
+
+  // today's phase is only known in the browser, so it is added to the description after the page has loaded
+  const [phaseNote, setPhaseNote] = useState("");
+  useEffect(() => setPhaseNote(`, tonight a ${PHASE.name}, ${Math.round(PHASE.illumination * 100)}% lit`), []);
 
   return (
     <div className="pagoda-wrap earth-wrap">
@@ -535,8 +761,9 @@ export function SkyArt() {
         style={{ aspectRatio: "1 / 1", touchAction: "pan-y" }}
         onDoubleClick={() => sky.current?.ship()}
         role="img"
-        aria-label={LABELS[theme ?? "dark"]}
+        aria-label={(theme ?? "dark") === "dark" ? LABELS.dark + phaseNote : LABELS.light}
       />
+      <p className="sky-caption" aria-live="polite">{issNote && tracking ? issNote : caption || (issNote.startsWith("couldn") ? issNote : "")}</p>
     </div>
   );
 }

@@ -27,13 +27,18 @@ export function usePath(initial?: string) {
   return path;
 }
 
+/** Goes to another page of the site without reloading, as a click on a <Link> does. */
+export function navigate(to: string) {
+  history.pushState(null, "", to);
+  pushed = true;
+  dispatchEvent(new PopStateEvent("popstate"));
+}
+
 export function Link({ to, children, current }: { to: string; children: ReactNode; current?: boolean }) {
   const go = (e: MouseEvent<HTMLAnchorElement>) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
     e.preventDefault();
-    history.pushState(null, "", to);
-    pushed = true;
-    dispatchEvent(new PopStateEvent("popstate"));
+    navigate(to);
   };
   return (
     <a href={to} onClick={go} aria-current={current ? "page" : undefined}>

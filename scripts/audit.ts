@@ -159,6 +159,26 @@ try {
     ? pass("after a page change focus is on the content, the title updated and the nav marks the page")
     : fail(`after a page change: ${after}`);
 
+  // the terminal: the backtick key opens it with focus in its input, a command works, and Escape closes it
+  await open("/");
+  const terminalOpen = () => ev("!!document.querySelector('[role=dialog][aria-label=Terminal]')");
+  await press("`", "Backquote", 192);
+  await Bun.sleep(500);
+  const opened = (await terminalOpen()) && (await ev("document.activeElement.tagName")) === "INPUT";
+  await call("Input.insertText", { text: "cd about" });
+  await press("Enter", "Enter", 13);
+  await Bun.sleep(900);
+  const went = (await ev("location.pathname")) === "/about" && !(await terminalOpen());
+  await press("`", "Backquote", 192);
+  await Bun.sleep(400);
+  const reopened = await terminalOpen();
+  await press("Escape", "Escape", 27);
+  await Bun.sleep(200);
+  const closed = !(await terminalOpen());
+  opened && went && reopened && closed
+    ? pass("the terminal opens with the backtick key, runs a command, and closes with Escape")
+    : fail(`terminal: opened ${opened}, cd worked ${went}, reopened ${reopened}, closed ${closed}`);
+
   // small screens: nothing scrolls sideways, links are big enough to tap
   for (const [w, h] of [[320, 700], [390, 844], [768, 1024], [1024, 768], [1440, 900]]) {
     for (const path of ["/", "/projects", "/projects/camdex", "/notes", "/about", "/nope"]) {

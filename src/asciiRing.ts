@@ -35,14 +35,17 @@ export function glyphFor(strength: number, col: number, row: number, moment: num
   return level <= 0 ? null : RAMP[Math.min(RAMP.length - 1, level)];
 }
 
-/** A canvas covering the screen, in the page's monospace, that takes part in a view transition so it stays on top. */
-export function makeLayer(width: number, height: number) {
+/**
+ * A canvas covering the screen, in the page's monospace. By default it takes part in a view transition so it stays on
+ * top; pass null for a plain overlay (the cursor trail, the comet).
+ */
+export function makeLayer(width: number, height: number, transitionName: string | null = "ascii-ring") {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const canvas = document.createElement("canvas");
   canvas.setAttribute("aria-hidden", "true");
   canvas.width = Math.round(width * dpr);
   canvas.height = Math.round(height * dpr);
-  canvas.style.cssText = "position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;view-transition-name:ascii-ring";
+  canvas.style.cssText = "position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none" + (transitionName ? `;view-transition-name:${transitionName}` : "");
   const ctx = canvas.getContext("2d")!;
   ctx.scale(dpr, dpr);
   ctx.font = `700 15px "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace`;

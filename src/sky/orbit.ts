@@ -53,14 +53,27 @@ export function skyPose(date: Date): Pose {
   const pitch = (v: number[]) => [v[0], cp * v[1] - sp * v[2], sp * v[1] + cp * v[2]];
   const sun = pitch(toSun);
   const north = pitch(axis);
-  // the meridian facing us, then east from that
+  return {
+    sun,
+    orient: orientFromNorth(north),
+    declination: Math.asin(Math.max(-1, Math.min(1, dot(north, sun)))),
+  };
+}
+
+/** The screen → globe rotation for a body whose north pole points along `north` (screen coordinates): the rows are east, north and the meridian facing us. */
+export function orientFromNorth(north: number[]): number[] {
   const view = [0, 0, 1];
   const k = dot(view, north);
   const meridian = unit([view[0] - k * north[0], view[1] - k * north[1], view[2] - k * north[2]]);
-  const east = cross(north, meridian);
-  return {
-    sun,
-    orient: [...east, ...north, ...meridian],
-    declination: Math.asin(Math.max(-1, Math.min(1, dot(north, sun)))),
-  };
+  return [...cross(north, meridian), ...north, ...meridian];
+}
+
+/**
+ * The pose of a body with a fixed axial tilt (Mars 25°, Saturn 27°): the north pole leaning to the right by `tilt`
+ * and tipped towards us by `pitch`, both in radians.
+ */
+export function fixedPose(tilt: number, pitch: number): number[] {
+  const [cp, sp] = [Math.cos(pitch), Math.sin(pitch)];
+  const lean = [Math.sin(tilt), Math.cos(tilt), 0];
+  return orientFromNorth([lean[0], cp * lean[1] - sp * lean[2], sp * lean[1] + cp * lean[2]]);
 }
