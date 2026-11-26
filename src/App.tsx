@@ -13,18 +13,27 @@ import { Footer } from "./Footer";
 import { Idle } from "./Idle";
 import { Trail } from "./Trail";
 import { useTheme } from "./theme";
+import { Analytics } from "@vercel/analytics/react";
 
 function ThemeToggle() {
   const theme = useTheme();
   // the label names the theme it switches to; before the page knows the theme it just says "theme"
   const other = theme === "light" ? "dark" : theme === "dark" ? "light" : null;
   return (
-    <button type="button" className="theme-toggle" aria-label={other ? `Switch to ${other} theme` : "Switch theme"} onClick={(e) => {
+    <button
+      type="button"
+      className="theme-toggle"
+      aria-label={other ? `Switch to ${other} theme` : "Switch theme"}
+      onClick={(e) => {
         if (!other) return;
         // the new theme grows out from the button
         const box = e.currentTarget.getBoundingClientRect();
-        changeTheme(other, { x: box.left + box.width / 2, y: box.top + box.height / 2 });
-      }}>
+        changeTheme(other, {
+          x: box.left + box.width / 2,
+          y: box.top + box.height / 2,
+        });
+      }}
+    >
       {other ?? "theme"}
     </button>
   );
@@ -48,9 +57,19 @@ function Nav({ path }: { path: string }) {
         {item("/projects", "projects")}
         {item("/notes", "notes")}
         {item("/about", "about")}
-        <li><ExternalLink href="https://github.com/cambboyle">github</ExternalLink></li>
-        <li><ExternalLink href="https://www.linkedin.com/in/cbb00/">linkedin</ExternalLink></li>
-        <li><ThemeToggle /></li>
+        <li>
+          <ExternalLink href="https://github.com/cambboyle">
+            github
+          </ExternalLink>
+        </li>
+        <li>
+          <ExternalLink href="https://www.linkedin.com/in/cbb00/">
+            linkedin
+          </ExternalLink>
+        </li>
+        <li>
+          <ThemeToggle />
+        </li>
       </ul>
     </nav>
   );
@@ -62,7 +81,9 @@ export function App({ initialPath }: { initialPath?: string }) {
   useEffect(() => {
     const { title, description } = pageMeta(path);
     document.title = title;
-    document.querySelector('meta[name="description"]')?.setAttribute("content", description);
+    document
+      .querySelector('meta[name="description"]')
+      ?.setAttribute("content", description);
     // After moving to another page, put keyboard focus at the top of the new content (and let screen readers
     // announce it), as a normal page load would. Skip the first render so the page doesn't steal focus on load.
     if (first.current) first.current = false;
@@ -70,7 +91,8 @@ export function App({ initialPath }: { initialPath?: string }) {
   }, [path]);
   let page;
   if (path === "/projects") page = <Projects />;
-  else if (path.startsWith("/projects/")) page = <Project slug={path.slice(10)} />;
+  else if (path.startsWith("/projects/"))
+    page = <Project slug={path.slice(10)} />;
   else if (path === "/notes") page = <Blog />;
   else if (path.startsWith("/notes/")) page = <Post slug={path.slice(7)} />;
   else if (path === "/about") page = <About />;
@@ -78,13 +100,16 @@ export function App({ initialPath }: { initialPath?: string }) {
   else page = <NotFound />;
   return (
     <>
-      <a className="skip" href="#main">Skip to content</a>
+      <a className="skip" href="#main">
+        Skip to content
+      </a>
       <Nav path={path} />
       {page}
       <Footer />
       <Dock />
       <Trail />
       <Comet />
+      <Analytics />
       <Idle active={path === "/"} />
     </>
   );

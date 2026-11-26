@@ -27,6 +27,8 @@ const server = Bun.serve({
     } catch {
       return notFound();
     }
+    // Vercel adds this address itself (the analytics script); here an empty stand-in keeps the console free of 404s
+    if (rel === "/_vercel/insights/script.js") return withHeaders(rel, new Response("", { headers: { "content-type": "text/javascript" } }));
     const target = resolve(dist, "." + rel);
     // never serve anything outside dist/, whatever the address contains (for example ..%2f)
     if (target !== dist && !target.startsWith(dist + sep)) return notFound(rel);

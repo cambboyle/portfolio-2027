@@ -45,7 +45,11 @@ const built = await Bun.build({
   splitting: true, // the phone and desktop pictures become separate files, loaded only when needed
   sourcemap: "linked",
   publicPath: "/", // absolute, so /projects/camdex finds /index-xxxx.js
-  define: { "process.env.BUILD_INFO": JSON.stringify(buildInfo) }, // the same facts in the browser, so the pages match
+  define: {
+    "process.env.BUILD_INFO": JSON.stringify(buildInfo), // the same facts in the browser, so the pages match
+    // without this the analytics package decides it is in development and loads its debug script from another site, which the CSP blocks
+    "process.env.NODE_ENV": JSON.stringify("production"),
+  },
 });
 if (!built.success) {
   for (const log of built.logs) console.error(log);

@@ -49,6 +49,10 @@ The site is static, so it runs on any static host. I use [Vercel](https://vercel
 | `vercel.json`    | security headers, and long caching for the hashed files                       |
 | Vercel dashboard | environment variable `SITE_URL` = `https://cambboyle.me`                      |
 
+Vercel installs with `bun install --frozen-lockfile`, which refuses to run if `bun.lock` doesn't match `package.json`. So after adding or changing any dependency, run `bun install` and commit the updated `bun.lock` with it, or the deploy fails at the install step.
+
+Vercel Web Analytics (`<Analytics />` in `src/App.tsx`) loads its script from the site's own address (`/_vercel/insights/script.js`, added by Vercel), so the content security policy needs no outside script source. This only holds because `scripts/build.tsx` sets `process.env.NODE_ENV` to `"production"` in the bundle; without it the package thinks it is in development and loads a debug script from `va.vercel-scripts.com`, which the policy blocks and the audit flags as a console error. `scripts/preview.ts` serves an empty stand-in for that address, since only Vercel has it.
+
 `SITE_URL` makes the build write canonical links, absolute share-image URLs, `sitemap.xml` and an RSS feed of Notes (`/feed.xml`); without it they are left out.
 
 The headers include a content security policy that allows no outside scripts. `bun run preview` and `bun run audit` read the same `vercel.json`, so a rule that would break the site shows up before it is live. The build writes each page as a flat file (`dist/projects/camdex.html`), and Vercel serves a missing address with `404.html`.
